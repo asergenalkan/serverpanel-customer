@@ -249,20 +249,24 @@ Henüz yok
 
 ## 📁 7. DOSYA YÖNETİMİ
 
-### Mevcut ❌
-Henüz yok
+### Mevcut ✅
+Web tabanlı dosya yöneticisi tam fonksiyonel çalışıyor.
 
-### Eklenecek Özellikler
-- [ ] **Web Tabanlı File Manager**
-  - Dosya/klasör listeleme
-  - Dosya yükleme (drag & drop)
-  - Dosya indirme
-  - Dosya düzenleme (code editor)
-  - Dosya kopyalama/taşıma
-  - Dosya silme
-  - Yeniden adlandırma
-  - Zip/Unzip
-  - Dosya arama
+### Tamamlanan Özellikler
+- [x] **Web Tabanlı File Manager** ✅
+  - ✅ Dosya/klasör listeleme
+  - ✅ Dosya yükleme (drag & drop)
+  - ✅ Dosya indirme
+  - ✅ Dosya düzenleme (code editor)
+  - ✅ Dosya kopyalama/taşıma
+  - ✅ Dosya silme
+  - ✅ Yeniden adlandırma
+  - ✅ Zip/Unzip (Archive)
+  - ✅ Dosya arama
+  - ✅ Resim önizleme
+  - ✅ Dark mode desteği
+  - ✅ ESC ile modal kapatma
+  - ✅ Kaydedilmemiş değişiklik uyarısı
 - [ ] **Dosya İzinleri (Permissions)**
   - chmod arayüzü
   - chown desteği
@@ -602,7 +606,7 @@ Bir hosting müşterisinin temel ihtiyaçlarına göre sıralandı:
 | 3 | ✅ Apache/PHP-FPM Entegrasyonu | Web sunucu | ✅ Tamam |
 | 4 | ✅ DNS Zone (BIND9) | Domain yönlendirme | ✅ Tamam |
 | 5 | ✅ Welcome Page | İlk açılış sayfası | ✅ Tamam |
-| 6 | Dosya Yöneticisi | Site dosyalarını yükleme | ⏳ Bekliyor |
+| 6 | ✅ Dosya Yöneticisi | Site dosyalarını yükleme | ✅ Tamam |
 | 7 | Veritabanı UI + phpMyAdmin | WordPress vb. kurulum | ⏳ Bekliyor |
 | 8 | SSL/Let's Encrypt | HTTPS zorunlu | ⏳ Bekliyor |
 

@@ -20,6 +20,17 @@ Admin giriş yapar
 │   ├── PHP-FPM pool silinir
 │   ├── Linux user silinir
 │   └── Home dizini silinir
+│
+├── Dosya Yöneticisi → ✅ Tam fonksiyonel!
+│   ├── Dosya/klasör listeleme, oluşturma, silme
+│   ├── Dosya yükleme (drag & drop, çoklu dosya)
+│   ├── Dosya indirme
+│   ├── Dosya düzenleme (code editor)
+│   ├── Kopyalama/Taşıma (Cut/Copy/Paste)
+│   ├── Zip/Unzip (Archive)
+│   ├── Dosya arama
+│   ├── Resim önizleme
+│   └── Dark mode + ESC modal kapatma
 ```
 
 ### 📋 Hedef (Devam Eden)
@@ -41,6 +52,13 @@ Admin (WHM benzeri):
 Kullanıcı (cPanel benzeri):
 ├── ✅ Kendi hesabına giriş yapar
 ├── ✅ Sadece kendi kaynaklarını görür
+├── ✅ Dosya Yöneticisi ile dosyalarını yönetir
+│   ├── ✅ Dosya/klasör listeleme, oluşturma, silme
+│   ├── ✅ Dosya yükleme (drag & drop)
+│   ├── ✅ Dosya düzenleme (code editor)
+│   ├── ✅ Dosya kopyalama/taşıma
+│   ├── ✅ Zip/Unzip (Archive)
+│   └── ✅ Resim önizleme
 ├── ⏳ Kendi domainlerini yönetir
 ├── ⏳ Kendi veritabanlarını yönetir
 └── ⏳ Kendi mail hesaplarını yönetir
