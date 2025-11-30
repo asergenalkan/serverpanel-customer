@@ -10,19 +10,20 @@ Bu dosya WHM/cPanel özelliklerini analiz eder ve ServerPanel'e eklenecek özell
 |----------|------------|-------------|------------|
 | Authentication | ✅ | ✅ | %100 |
 | Dashboard | ✅ | ✅ | %80 |
-| Kullanıcı Yönetimi | ✅ | ⚠️ Temel | %30 |
-| Domain Yönetimi | ✅ | ⚠️ API var | %20 |
-| DNS Yönetimi | ✅ | ❌ | %0 |
+| Kullanıcı Yönetimi | ✅ | ✅ Çalışıyor | %70 |
+| Domain Yönetimi | ✅ | ✅ Çalışıyor | %60 |
+| DNS Yönetimi | ✅ | ✅ BIND9 | %50 |
 | E-posta Yönetimi | ✅ | ⚠️ API var | %10 |
 | Veritabanı Yönetimi | ✅ | ⚠️ API var | %20 |
 | Dosya Yönetimi | ✅ | ❌ | %0 |
 | FTP Yönetimi | ✅ | ❌ | %0 |
-| SSL/TLS | ✅ | ❌ | %0 |
+| SSL/TLS | ✅ | ⚠️ Service var | %30 |
 | Backup | ✅ | ❌ | %0 |
 | Cron Jobs | ✅ | ❌ | %0 |
 | Güvenlik | ✅ | ⚠️ Temel | %20 |
 | Metrics/Logs | ✅ | ⚠️ Temel | %15 |
 | Reseller Sistemi | ✅ | ⚠️ Rol var | %10 |
+| **Kurulum Scripti** | ✅ | ✅ Çalışıyor | %90 |
 
 ---
 
@@ -597,10 +598,13 @@ Bir hosting müşterisinin temel ihtiyaçlarına göre sıralandı:
 | # | Özellik | Neden Gerekli? | Durum |
 |---|---------|----------------|-------|
 | 1 | ✅ Authentication & Dashboard | Panele giriş | ✅ Tamam |
-| 2 | Domain Yönetimi UI | Website adresi | 🔄 Sırada |
-| 3 | Dosya Yöneticisi | Site dosyalarını yükleme | ⏳ Bekliyor |
-| 4 | Veritabanı UI + phpMyAdmin | WordPress vb. kurulum | ⏳ Bekliyor |
-| 5 | SSL/Let's Encrypt | HTTPS zorunlu | ⏳ Bekliyor |
+| 2 | ✅ Hesap Yönetimi (CRUD) | Hosting hesabı | ✅ Tamam |
+| 3 | ✅ Apache/PHP-FPM Entegrasyonu | Web sunucu | ✅ Tamam |
+| 4 | ✅ DNS Zone (BIND9) | Domain yönlendirme | ✅ Tamam |
+| 5 | ✅ Welcome Page | İlk açılış sayfası | ✅ Tamam |
+| 6 | Dosya Yöneticisi | Site dosyalarını yükleme | ⏳ Bekliyor |
+| 7 | Veritabanı UI + phpMyAdmin | WordPress vb. kurulum | ⏳ Bekliyor |
+| 8 | SSL/Let's Encrypt | HTTPS zorunlu | ⏳ Bekliyor |
 
 ### 🎯 Faz 2 - Temel Hosting
 > Müşteri e-posta kullanabilmeli, yedek alabilmeli
@@ -639,10 +643,20 @@ Bir hosting müşterisinin temel ihtiyaçlarına göre sıralandı:
 
 ## 📈 İlerleme Durumu
 
-- **Tamamlanan**: 8 özellik
-- **Devam Eden**: 0 özellik
-- **Bekleyen**: 150+ özellik
-- **Toplam İlerleme**: ~%5
+- **Tamamlanan**: 15+ özellik
+- **Devam Eden**: 3 özellik
+- **Bekleyen**: 140+ özellik
+- **Toplam İlerleme**: ~%15
+
+### ✅ Son Tamamlanan Özellikler (30 Kasım 2025)
+- Tek komutla kurulum scripti (install.sh)
+- Linux user yönetimi (useradd/userdel)
+- Apache vhost yönetimi (a2ensite/a2dissite)
+- PHP-FPM pool yönetimi
+- BIND9 DNS zone yönetimi
+- Home dizini izin yönetimi (711/755)
+- Welcome page otomatik oluşturma
+- Hesap CRUD (Create/Read/Update/Delete)
 
 ---
 

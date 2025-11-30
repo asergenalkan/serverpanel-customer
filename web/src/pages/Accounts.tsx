@@ -229,7 +229,7 @@ export default function Accounts() {
                 <ul className="text-blue-700 mt-1 list-disc list-inside">
                   <li>Linux kullanıcısı oluşturulur</li>
                   <li>Home dizini ve public_html klasörü oluşturulur</li>
-                  <li>Nginx virtual host konfigürasyonu yapılır</li>
+                  <li>Apache virtual host konfigürasyonu yapılır</li>
                   <li>Hoşgeldin sayfası oluşturulur</li>
                 </ul>
               </div>
@@ -574,7 +574,7 @@ export default function Accounts() {
                         </li>
                         <li className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-                          Nginx: <code className="bg-white px-1 rounded">{formData.domain || '...'}.conf</code>
+                          Apache: <code className="bg-white px-1 rounded">{formData.domain || '...'}.conf</code>
                         </li>
                       </ul>
                     </div>

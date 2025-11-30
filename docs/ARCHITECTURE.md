@@ -2,36 +2,48 @@
 
 ## Mevcut Durum vs Hedef
 
-### ❌ Mevcut (Yanlış)
+### ✅ Mevcut (ÇALIŞIYOR!)
 ```
 Admin giriş yapar
-├── Domain ekler → Sadece DB'ye yazılır
-├── Veritabanı ekler → Sadece DB'ye yazılır
-└── Hiçbir şey gerçekte oluşmaz
+├── Hesap oluşturur → ✅ Gerçekten oluşur!
+│   ├── Linux user: useradd -m -d /home/username -s /bin/bash username
+│   ├── Dizin yapısı: /home/username/{public_html, mail, logs, tmp, ssl}
+│   ├── İzinler: home=711, public_html=755
+│   ├── PHP-FPM pool: /etc/php/8.1/fpm/pool.d/username.conf
+│   ├── Apache vhost: /etc/apache2/sites-available/domain.conf
+│   ├── DNS zone: /etc/bind/zones/db.domain
+│   └── Welcome page: index.html
+│
+├── Hesap siler → ✅ Gerçekten siliniyor!
+│   ├── Apache vhost kaldırılır
+│   ├── DNS zone silinir
+│   ├── PHP-FPM pool silinir
+│   ├── Linux user silinir
+│   └── Home dizini silinir
 ```
 
-### ✅ Hedef (Doğru)
+### 📋 Hedef (Devam Eden)
 ```
 Admin (WHM benzeri):
-├── Kullanıcı/Hesap oluşturur
-│   ├── Linux user: useradd -m -d /home/username -s /bin/bash username
-│   ├── Dizin yapısı: /home/username/{public_html, mail, logs, tmp}
-│   ├── İzinler: chown -R username:username /home/username
-│   ├── Quota: setquota veya disk limit
-│   └── PHP-FPM pool: /etc/php/8.x/fpm/pool.d/username.conf
+├── ✅ Kullanıcı/Hesap oluşturur
+│   ├── ✅ Linux user: useradd -m -d /home/username -s /bin/bash username
+│   ├── ✅ Dizin yapısı: /home/username/{public_html, mail, logs, tmp}
+│   ├── ✅ İzinler: chown -R username:username /home/username
+│   ├── ⏳ Quota: setquota veya disk limit
+│   └── ✅ PHP-FPM pool: /etc/php/8.x/fpm/pool.d/username.conf
 │
-├── Domain atar
-│   ├── Nginx vhost: /etc/nginx/sites-available/domain.com
-│   ├── Document root: /home/username/public_html/domain.com
-│   ├── SSL config: Let's Encrypt için hazırlık
-│   └── DNS zone: BIND veya PowerDNS
+├── ✅ Domain atar
+│   ├── ✅ Apache vhost: /etc/apache2/sites-available/domain.com
+│   ├── ✅ Document root: /home/username/public_html
+│   ├── ⏳ SSL config: Let's Encrypt için hazırlık
+│   └── ✅ DNS zone: BIND9
 
 Kullanıcı (cPanel benzeri):
-├── Kendi hesabına giriş yapar
-├── Sadece kendi kaynaklarını görür
-├── Kendi domainlerini yönetir
-├── Kendi veritabanlarını yönetir
-└── Kendi mail hesaplarını yönetir
+├── ✅ Kendi hesabına giriş yapar
+├── ✅ Sadece kendi kaynaklarını görür
+├── ⏳ Kendi domainlerini yönetir
+├── ⏳ Kendi veritabanlarını yönetir
+└── ⏳ Kendi mail hesaplarını yönetir
 ```
 
 ---
@@ -192,19 +204,25 @@ func sanitizePath(path string) string {
 
 ## Öncelik Sırası (Güncellendi)
 
-### Faz 0 - Temel Altyapı (ÖNCELİK!)
-1. [ ] Linux user yönetimi (useradd/userdel)
-2. [ ] Dizin yapısı oluşturma
-3. [ ] Nginx vhost yönetimi
-4. [ ] Hesap oluşturma akışı
+### ✅ Faz 0 - Temel Altyapı (TAMAMLANDI!)
+1. [x] Linux user yönetimi (useradd/userdel)
+2. [x] Dizin yapısı oluşturma (711/755 izinlerle)
+3. [x] Apache vhost yönetimi (a2ensite/a2dissite)
+4. [x] PHP-FPM pool yönetimi
+5. [x] DNS zone yönetimi (BIND9)
+6. [x] Hesap oluşturma akışı (tam entegrasyon)
+7. [x] Hesap silme akışı (tam temizlik)
+8. [x] Tek komutla kurulum scripti
 
-### Faz 1 - MVP
-1. [ ] Hesap yönetimi UI (Admin)
+### 🔄 Faz 1 - MVP (Devam Ediyor)
+1. [x] Hesap yönetimi UI (Admin)
 2. [ ] Kullanıcının kendi paneli
-3. [ ] Domain ekleme (gerçek)
+3. [x] Domain ekleme (gerçek)
 4. [ ] Dosya yöneticisi
+5. [ ] MySQL veritabanı UI
 
-### Faz 2 - Temel Hosting
+### ⏳ Faz 2 - Temel Hosting
 1. [ ] MySQL veritabanı yönetimi
 2. [ ] SSL/Let's Encrypt
-3. [ ] Backup
+3. [ ] FTP hesapları
+4. [ ] Backup
