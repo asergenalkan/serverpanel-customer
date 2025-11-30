@@ -250,7 +250,15 @@ func (s *Service) createSystemUser(username, homeDir string) error {
 	// Check if user already exists
 	checkCmd := exec.Command("id", username)
 	if err := checkCmd.Run(); err == nil {
-		return fmt.Errorf("system user '%s' already exists", username)
+		// User exists - check if it's our user (has public_html)
+		publicHTML := filepath.Join(homeDir, "public_html")
+		if _, statErr := os.Stat(publicHTML); statErr == nil {
+			// It's our user, we can reuse it
+			log.Printf("⚠️ System user '%s' already exists, reusing...", username)
+			return nil
+		}
+		// User exists but not ours - this is a conflict
+		return fmt.Errorf("system user '%s' already exists (not created by panel)", username)
 	}
 
 	cmd := exec.Command("useradd", "-m", "-d", homeDir, "-s", "/bin/bash", username)
