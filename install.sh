@@ -130,19 +130,14 @@ install_packages() {
     # Repo güncelle
     apt-get update -qq
     
-    # PHP sürümünü belirle
+    # PHP sürümünü belirle - Ubuntu 22.04'te varsayılan 8.1
     source /etc/os-release
-    if [[ "$VERSION_ID" == "22.04" || "$VERSION_ID" == "24.04" ]]; then
-        PHP_VERSION="8.2"
-    elif [[ "$VERSION_ID" == "20.04" ]]; then
+    if [[ "$VERSION_ID" == "24.04" ]]; then
+        PHP_VERSION="8.3"
+    elif [[ "$VERSION_ID" == "22.04" ]]; then
         PHP_VERSION="8.1"
-        # PHP 8.1 için ondrej/php repo ekle
-        if ! dpkg -l | grep -q "php${PHP_VERSION}-fpm"; then
-            log_step "PHP ${PHP_VERSION} deposu ekleniyor..."
-            apt-get install -y software-properties-common
-            add-apt-repository -y ppa:ondrej/php
-            apt-get update -qq
-        fi
+    elif [[ "$VERSION_ID" == "20.04" ]]; then
+        PHP_VERSION="7.4"
     else
         PHP_VERSION="8.1"
     fi
