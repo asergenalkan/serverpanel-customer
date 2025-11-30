@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { accountsAPI, packagesAPI } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -117,6 +117,25 @@ export default function Accounts() {
     fetchAccounts();
     fetchPackages();
   }, []);
+
+  // ESC key handler for modal
+  const closeModal = useCallback(() => {
+    setShowAddModal(false);
+    setError('');
+  }, []);
+
+  useEffect(() => {
+    if (!showAddModal) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeModal();
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showAddModal, closeModal]);
 
   const handleAddAccount = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -431,8 +450,11 @@ export default function Accounts() {
 
       {/* Add Account Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={closeModal}
+        >
+          <Card className="w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
             <CardHeader className="flex flex-row items-center justify-between border-b shrink-0">
               <div>
                 <CardTitle>Yeni Hosting Hesabı</CardTitle>

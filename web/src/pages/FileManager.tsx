@@ -3,6 +3,7 @@ import { filesAPI } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardContent } from '@/components/ui/Card';
+import { Modal, SimpleModal } from '@/components/ui/Modal';
 import Layout from '@/components/Layout';
 import {
   FolderOpen,
@@ -97,7 +98,7 @@ export default function FileManager() {
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [showNewFile, setShowNewFile] = useState(false);
   const [showRename, setShowRename] = useState<FileItem | null>(null);
-  const [showEditor, setShowEditor] = useState<{ path: string; content: string; name: string } | null>(null);
+  const [showEditor, setShowEditor] = useState<{ path: string; content: string; name: string; originalContent: string } | null>(null);
   const [showPreview, setShowPreview] = useState<{ url: string; name: string } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   
@@ -233,12 +234,14 @@ export default function FileManager() {
     try {
       const response = await filesAPI.read(file.path);
       if (response.data.success) {
+        const content = response.data.data.content;
         setShowEditor({
           path: file.path,
-          content: response.data.data.content,
+          content: content,
           name: file.name,
+          originalContent: content,
         });
-        setEditorContent(response.data.data.content);
+        setEditorContent(content);
       }
     } catch (error: any) {
       alert(error.response?.data?.error || 'Dosya açılamadı');
@@ -756,90 +759,86 @@ export default function FileManager() {
         </div>
 
         {/* New Folder Modal */}
-        {showNewFolder && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-card rounded-lg p-6 w-96 shadow-xl border">
-              <h3 className="text-lg font-semibold mb-4">Yeni Klasör</h3>
-              <Input
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                placeholder="Klasör adı"
-                autoFocus
-                onKeyDown={(e) => e.key === 'Enter' && createFolder()}
-              />
-              <div className="flex justify-end gap-2 mt-4">
-                <Button variant="ghost" onClick={() => setShowNewFolder(false)}>İptal</Button>
-                <Button onClick={createFolder}>Oluştur</Button>
-              </div>
-            </div>
+        <SimpleModal
+          isOpen={showNewFolder}
+          onClose={() => setShowNewFolder(false)}
+          title="Yeni Klasör"
+        >
+          <Input
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            placeholder="Klasör adı"
+            autoFocus
+            onKeyDown={(e) => e.key === 'Enter' && createFolder()}
+          />
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="ghost" onClick={() => setShowNewFolder(false)}>İptal</Button>
+            <Button onClick={createFolder}>Oluştur</Button>
           </div>
-        )}
+        </SimpleModal>
 
         {/* New File Modal */}
-        {showNewFile && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-card rounded-lg p-6 w-96 shadow-xl border">
-              <h3 className="text-lg font-semibold mb-4">Yeni Dosya</h3>
-              <Input
-                value={newFileName}
-                onChange={(e) => setNewFileName(e.target.value)}
-                placeholder="Dosya adı (örn: index.html)"
-                autoFocus
-                onKeyDown={(e) => e.key === 'Enter' && createFile()}
-              />
-              <div className="flex justify-end gap-2 mt-4">
-                <Button variant="ghost" onClick={() => setShowNewFile(false)}>İptal</Button>
-                <Button onClick={createFile}>Oluştur</Button>
-              </div>
-            </div>
+        <SimpleModal
+          isOpen={showNewFile}
+          onClose={() => setShowNewFile(false)}
+          title="Yeni Dosya"
+        >
+          <Input
+            value={newFileName}
+            onChange={(e) => setNewFileName(e.target.value)}
+            placeholder="Dosya adı (örn: index.html)"
+            autoFocus
+            onKeyDown={(e) => e.key === 'Enter' && createFile()}
+          />
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="ghost" onClick={() => setShowNewFile(false)}>İptal</Button>
+            <Button onClick={createFile}>Oluştur</Button>
           </div>
-        )}
+        </SimpleModal>
 
         {/* Rename Modal */}
-        {showRename && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-card rounded-lg p-6 w-96 shadow-xl border">
-              <h3 className="text-lg font-semibold mb-4">Yeniden Adlandır</h3>
-              <Input
-                value={renameName}
-                onChange={(e) => setRenameName(e.target.value)}
-                placeholder="Yeni ad"
-                autoFocus
-                onKeyDown={(e) => e.key === 'Enter' && handleRename()}
-              />
-              <div className="flex justify-end gap-2 mt-4">
-                <Button variant="ghost" onClick={() => setShowRename(null)}>İptal</Button>
-                <Button onClick={handleRename}>Kaydet</Button>
-              </div>
-            </div>
+        <SimpleModal
+          isOpen={!!showRename}
+          onClose={() => setShowRename(null)}
+          title="Yeniden Adlandır"
+        >
+          <Input
+            value={renameName}
+            onChange={(e) => setRenameName(e.target.value)}
+            placeholder="Yeni ad"
+            autoFocus
+            onKeyDown={(e) => e.key === 'Enter' && handleRename()}
+          />
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="ghost" onClick={() => setShowRename(null)}>İptal</Button>
+            <Button onClick={handleRename}>Kaydet</Button>
           </div>
-        )}
+        </SimpleModal>
 
         {/* Editor Modal */}
-        {showEditor && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-card rounded-lg shadow-xl border w-full max-w-5xl h-[80vh] flex flex-col">
-              <div className="flex items-center justify-between p-4 border-b">
-                <div className="flex items-center gap-2">
-                  <FileCode className="w-5 h-5 text-blue-500" />
-                  <span className="font-medium">{showEditor.name}</span>
-                  <span className="text-sm text-muted-foreground">{showEditor.path}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => setShowEditor(null)}>
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
+        <Modal
+          isOpen={!!showEditor}
+          onClose={() => setShowEditor(null)}
+          title={showEditor ? `${showEditor.name} - ${showEditor.path}` : ''}
+          size="xl"
+          hasUnsavedChanges={showEditor ? editorContent !== showEditor.originalContent : false}
+        >
+          <div className="flex flex-col h-[70vh]">
+            <div className="flex-1 p-4">
+              <textarea
+                value={editorContent}
+                onChange={(e) => setEditorContent(e.target.value)}
+                className="w-full h-full font-mono text-sm p-4 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-background text-foreground"
+                spellCheck={false}
+              />
+            </div>
+            <div className="flex items-center justify-between p-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                {showEditor && editorContent !== showEditor.originalContent && (
+                  <span className="text-orange-500">● Kaydedilmemiş değişiklikler</span>
+                )}
               </div>
-              <div className="flex-1 p-4">
-                <textarea
-                  value={editorContent}
-                  onChange={(e) => setEditorContent(e.target.value)}
-                  className="w-full h-full font-mono text-sm p-4 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-background text-foreground"
-                  spellCheck={false}
-                />
-              </div>
-              <div className="flex justify-end gap-2 p-4 border-t">
+              <div className="flex gap-2">
                 <Button variant="ghost" onClick={() => setShowEditor(null)}>İptal</Button>
                 <Button onClick={saveFile}>
                   <Check className="w-4 h-4 mr-1" />
@@ -848,7 +847,7 @@ export default function FileManager() {
               </div>
             </div>
           </div>
-        )}
+        </Modal>
 
         {/* Image Preview Modal */}
         {showPreview && (
