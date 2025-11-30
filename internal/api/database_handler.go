@@ -622,8 +622,8 @@ func (h *Handler) GetPhpMyAdminURL(c *fiber.Ctx) error {
 		serverIP = "localhost"
 	}
 
-	// Return signon URL
-	pmaURL := fmt.Sprintf("http://%s/phpmyadmin/index.php?token=%s", serverIP, token)
+	// Return signon URL (pma-signon.php üzerinden geçecek)
+	pmaURL := fmt.Sprintf("http://%s/pma-signon.php?token=%s", serverIP, token)
 
 	return c.JSON(models.APIResponse{
 		Success: true,

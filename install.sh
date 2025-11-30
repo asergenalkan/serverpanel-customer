@@ -694,21 +694,14 @@ PMACONFIG
     chmod 644 /usr/share/phpmyadmin/config.inc.php
     log_done "phpMyAdmin config oluşturuldu"
     
-    # Signon PHP script'i oluştur
+    # Signon PHP script'i oluştur (Go backend'den credential çeker)
     log_progress "Signon script oluşturuluyor"
     cat > /var/www/html/pma-signon.php << 'SCRIPTEOF'
 <?php
 /**
  * ServerPanel - phpMyAdmin Single Sign-On
+ * Go backend'den güvenli şekilde credential alır
  */
-
-// Cookie ayarları - path '/' olmalı ki phpMyAdmin okuyabilsin
-ini_set('session.use_cookies', 'true');
-session_set_cookie_params(0, '/', '', false, true);
-
-// Session başlat
-session_name('SignonSession');
-@session_start();
 
 $token = $_GET['token'] ?? '';
 if (empty($token)) {
@@ -716,29 +709,42 @@ if (empty($token)) {
     exit;
 }
 
-$decoded = base64_decode($token);
-if ($decoded === false) {
-    die('Geçersiz token');
+// Go backend'den credential al (one-time token)
+$apiUrl = "http://127.0.0.1:8443/api/v1/internal/pma-credentials?token=" . urlencode($token);
+
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, $apiUrl);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+$response = curl_exec($ch);
+$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+curl_close($ch);
+
+if ($httpCode !== 200 || empty($response)) {
+    die('Token geçersiz veya süresi dolmuş');
 }
 
-$data = json_decode($decoded, true);
-if (!$data || !isset($data['user']) || !isset($data['password'])) {
-    die('Token parse hatası');
+$data = json_decode($response, true);
+if (!$data || empty($data['user']) || empty($data['password'])) {
+    die('Credential alınamadı');
 }
 
-if (isset($data['exp']) && time() > $data['exp']) {
-    die('Token süresi dolmuş');
-}
+// Session ayarları - path '/' olmalı ki phpMyAdmin okuyabilsin
+ini_set('session.use_cookies', 'true');
+session_set_cookie_params(0, '/', '', false, true);
+session_name('SignonSession');
+session_start();
 
 // phpMyAdmin için gerekli session değişkenleri
 $_SESSION['PMA_single_signon_user'] = $data['user'];
 $_SESSION['PMA_single_signon_password'] = $data['password'];
-$_SESSION['PMA_single_signon_host'] = 'localhost';
+$_SESSION['PMA_single_signon_host'] = $data['host'] ?? 'localhost';
 $_SESSION['PMA_single_signon_port'] = 3306;
 $_SESSION['PMA_single_signon_HMAC_secret'] = hash('sha1', uniqid(strval(rand()), true));
 
-// Session'ı kapat ve kaydet
-@session_write_close();
+// Session'ı kaydet
+session_write_close();
 
 // phpMyAdmin'e yönlendir
 $pmaUrl = '/phpmyadmin/index.php';
