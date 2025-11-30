@@ -417,6 +417,62 @@ install_phpmyadmin() {
         sed -i "s/\$cfg\['blowfish_secret'\] = ''/\$cfg['blowfish_secret'] = '${BLOWFISH}'/" /etc/phpmyadmin/config.inc.php 2>/dev/null || true
     fi
     
+    # Signon authentication için config ekle
+    log_progress "Signon authentication ayarlanıyor"
+    mkdir -p /etc/phpmyadmin/conf.d
+    cat > /etc/phpmyadmin/conf.d/serverpanel.php << 'SIGNONEOF'
+<?php
+// ServerPanel Signon Authentication
+$cfg['Servers'][1]['auth_type'] = 'signon';
+$cfg['Servers'][1]['SignonSession'] = 'SignonSession';
+$cfg['Servers'][1]['SignonURL'] = '/pma-signon.php';
+$cfg['Servers'][1]['LogoutURL'] = '/phpmyadmin/';
+SIGNONEOF
+    log_done "Signon config oluşturuldu"
+    
+    # Signon PHP script'i oluştur
+    log_progress "Signon script oluşturuluyor"
+    cat > /var/www/html/pma-signon.php << 'SCRIPTEOF'
+<?php
+session_name('SignonSession');
+session_start();
+
+$token = $_GET['token'] ?? '';
+if (empty($token)) {
+    header('Location: /phpmyadmin/');
+    exit;
+}
+
+$decoded = base64_decode($token);
+if ($decoded === false) {
+    die('Geçersiz token');
+}
+
+$data = json_decode($decoded, true);
+if (!$data || !isset($data['user']) || !isset($data['password'])) {
+    die('Token parse hatası');
+}
+
+if (isset($data['exp']) && time() > $data['exp']) {
+    die('Token süresi dolmuş');
+}
+
+$_SESSION['PMA_single_signon_user'] = $data['user'];
+$_SESSION['PMA_single_signon_password'] = $data['password'];
+$_SESSION['PMA_single_signon_host'] = 'localhost';
+
+$pmaUrl = '/phpmyadmin/index.php';
+if (!empty($data['db'])) {
+    $pmaUrl .= '?db=' . urlencode($data['db']);
+}
+
+header('Location: ' . $pmaUrl);
+exit;
+SCRIPTEOF
+    chown www-data:www-data /var/www/html/pma-signon.php
+    chmod 644 /var/www/html/pma-signon.php
+    log_done "Signon script oluşturuldu"
+    
     systemctl reload apache2
     
     sleep 2
@@ -425,6 +481,8 @@ install_phpmyadmin() {
     else
         log_warn "phpMyAdmin erişimi doğrulanamadı"
     fi
+    
+    log_info "Auto-login özelliği aktif ✓"
 }
 
 install_go() {

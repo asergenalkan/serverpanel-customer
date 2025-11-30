@@ -3,13 +3,16 @@ package api
 import (
 	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/asergenalkan/serverpanel/internal/models"
 	"github.com/gofiber/fiber/v2"
@@ -574,13 +577,34 @@ func (h *Handler) GetPhpMyAdminURL(c *fiber.Ctx) error {
 		})
 	}
 
-	// Get database user
-	var dbUser string
-	h.db.QueryRow("SELECT db_username FROM database_users WHERE database_id = ? LIMIT 1", dbID).Scan(&dbUser)
+	// Get database user and password
+	var dbUser, dbPassword string
+	err = h.db.QueryRow("SELECT db_username, password FROM database_users WHERE database_id = ? LIMIT 1", dbID).Scan(&dbUser, &dbPassword)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Database user not found",
+		})
+	}
 
-	// Return phpMyAdmin URL - user needs to login manually
-	// In production, you might implement SSO with phpMyAdmin's auth_type = 'signon'
-	pmaURL := fmt.Sprintf("/phpmyadmin/?db=%s", dbName)
+	// Create signon token (base64 encoded JSON with expiration)
+	tokenData := map[string]interface{}{
+		"user":     dbUser,
+		"password": dbPassword,
+		"db":       dbName,
+		"exp":      time.Now().Add(5 * time.Minute).Unix(),
+	}
+	tokenJSON, _ := json.Marshal(tokenData)
+	token := base64.StdEncoding.EncodeToString(tokenJSON)
+
+	// Get server IP for URL
+	serverIP := os.Getenv("SERVER_IP")
+	if serverIP == "" {
+		serverIP = "localhost"
+	}
+
+	// Return signon URL
+	pmaURL := fmt.Sprintf("http://%s/pma-signon.php?token=%s", serverIP, token)
 
 	return c.JSON(models.APIResponse{
 		Success: true,
@@ -588,7 +612,6 @@ func (h *Handler) GetPhpMyAdminURL(c *fiber.Ctx) error {
 			"url":      pmaURL,
 			"database": dbName,
 			"username": dbUser,
-			"note":     "Use database credentials to login to phpMyAdmin",
 		},
 	})
 }

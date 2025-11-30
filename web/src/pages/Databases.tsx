@@ -220,15 +220,8 @@ export default function Databases() {
     try {
       const response = await databasesAPI.getPhpMyAdminURL(dbId);
       if (response.data.success) {
-        const data = response.data.data;
-        // Copy credentials to clipboard
-        const credentials = `Veritabanı: ${data.database}\nKullanıcı: ${data.username}\nHost: localhost`;
-        navigator.clipboard.writeText(credentials);
-        
-        // Open phpMyAdmin in new tab
-        window.open(data.url, '_blank');
-        
-        alert('Giriş bilgileri panoya kopyalandı!\n\n' + credentials);
+        // Open phpMyAdmin with auto-login in new tab
+        window.open(response.data.data.url, '_blank');
       }
     } catch (error: any) {
       alert(error.response?.data?.error || 'phpMyAdmin açılamadı');
