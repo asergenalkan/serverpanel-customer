@@ -211,7 +211,7 @@ func (s *Service) CreateAccount(req CreateAccountRequest) (*Account, error) {
 		// Don't fail account creation if DNS fails
 	}
 
-	if err := s.createWelcomePage(req.Domain, documentRoot); err != nil {
+	if err := s.createWelcomePage(req.Username, req.Domain, documentRoot); err != nil {
 		log.Printf("Warning: failed to create welcome page: %v", err)
 	}
 
@@ -365,7 +365,7 @@ func (s *Service) createDNSZone(domain string) error {
 }
 
 // createWelcomePage creates a default index.html
-func (s *Service) createWelcomePage(domain, documentRoot string) error {
+func (s *Service) createWelcomePage(username, domain, documentRoot string) error {
 	html := fmt.Sprintf(`<!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -413,7 +413,17 @@ func (s *Service) createWelcomePage(domain, documentRoot string) error {
 `, domain, domain)
 
 	indexPath := filepath.Join(documentRoot, "index.html")
-	return os.WriteFile(indexPath, []byte(html), 0644)
+	if err := os.WriteFile(indexPath, []byte(html), 0644); err != nil {
+		return err
+	}
+
+	// Set ownership to the user (not root)
+	if !config.IsDevelopment() && s.cfg.IsLinux {
+		exec.Command("chown", username+":"+username, indexPath).Run()
+	}
+
+	log.Printf("📝 Welcome page created: %s", indexPath)
+	return nil
 }
 
 // ListAccounts returns all hosting accounts
