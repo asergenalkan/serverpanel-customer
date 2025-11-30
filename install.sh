@@ -36,7 +36,7 @@ RELEASE_URL="https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}"
 
 # Sayaçlar
 STEP_CURRENT=0
-STEP_TOTAL=12
+STEP_TOTAL=13
 ERRORS=0
 WARNINGS=0
 START_TIME=$(date +%s)
@@ -281,6 +281,56 @@ configure_php() {
     log_info "PHP-FPM durumu: $(systemctl is-active php${PHP_VERSION}-fpm)"
 }
 
+install_phpmyadmin() {
+    log_step "phpMyAdmin Kuruluyor"
+    
+    # MySQL şifresini oku
+    local MYSQL_PASS=""
+    [[ -f /root/.serverpanel/mysql.conf ]] && source /root/.serverpanel/mysql.conf && MYSQL_PASS=$MYSQL_ROOT_PASSWORD
+    
+    # phpMyAdmin otomatik kurulum için debconf ayarları
+    log_progress "phpMyAdmin yapılandırılıyor"
+    
+    # Debconf ile otomatik kurulum
+    echo "phpmyadmin phpmyadmin/dbconfig-install boolean true" | debconf-set-selections
+    echo "phpmyadmin phpmyadmin/app-password-confirm password ${MYSQL_PASS}" | debconf-set-selections
+    echo "phpmyadmin phpmyadmin/mysql/admin-pass password ${MYSQL_PASS}" | debconf-set-selections
+    echo "phpmyadmin phpmyadmin/mysql/app-pass password ${MYSQL_PASS}" | debconf-set-selections
+    echo "phpmyadmin phpmyadmin/reconfigure-webserver multiselect apache2" | debconf-set-selections
+    
+    log_done "Yapılandırma tamamlandı"
+    
+    log_progress "phpMyAdmin kuruluyor"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y phpmyadmin > /dev/null 2>&1
+    log_done "phpMyAdmin kuruldu"
+    
+    # Apache yapılandırması
+    if [[ ! -f /etc/apache2/conf-available/phpmyadmin.conf ]]; then
+        ln -sf /etc/phpmyadmin/apache.conf /etc/apache2/conf-available/phpmyadmin.conf
+    fi
+    a2enconf phpmyadmin > /dev/null 2>&1 || true
+    
+    # Güvenlik: Sadece localhost'tan erişim için .htaccess
+    cat > /usr/share/phpmyadmin/.htaccess << 'EOF'
+# ServerPanel phpMyAdmin güvenlik ayarları
+<IfModule mod_authz_core.c>
+    # Apache 2.4
+    Require all granted
+</IfModule>
+<IfModule !mod_authz_core.c>
+    # Apache 2.2
+    Order Allow,Deny
+    Allow from all
+</IfModule>
+EOF
+    
+    # Apache yeniden başlat
+    systemctl reload apache2
+    
+    log_info "phpMyAdmin URL: http://SUNUCU_IP/phpmyadmin"
+    log_info "Veritabanı kullanıcıları ile giriş yapılabilir"
+}
+
 install_go() {
     log_step "Go Programlama Dili Kuruluyor"
     
@@ -432,6 +482,12 @@ print_summary() {
     echo -e "${CYAN}│${NC}   ${YELLOW}Kullanıcı:${NC}  ${WHITE}admin${NC}                                                       ${CYAN}│${NC}"
     echo -e "${CYAN}│${NC}   ${YELLOW}Şifre:${NC}      ${WHITE}admin123${NC}                                                    ${CYAN}│${NC}"
     echo -e "${CYAN}│${NC}                                                                             ${CYAN}│${NC}"
+    echo -e "${CYAN}├─────────────────────────────────────────────────────────────────────────────┤${NC}"
+    echo -e "${CYAN}│${NC} ${WHITE}${BOLD}phpMyAdmin${NC}                                                                  ${CYAN}│${NC}"
+    echo -e "${CYAN}├─────────────────────────────────────────────────────────────────────────────┤${NC}"
+    echo -e "${CYAN}│${NC}   ${YELLOW}URL:${NC}        ${GREEN}http://${SERVER_IP}/phpmyadmin${NC}                           ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}   ${YELLOW}Not:${NC}        Veritabanı kullanıcıları ile giriş yapın                   ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}                                                                             ${CYAN}│${NC}"
     echo -e "${CYAN}└─────────────────────────────────────────────────────────────────────────────┘${NC}"
     echo ""
     echo -e "${YELLOW}⚠️  GÜVENLİK: İlk girişte şifrenizi değiştirin!${NC}"
@@ -467,6 +523,7 @@ main() {
     configure_mysql
     configure_dns
     configure_php
+    install_phpmyadmin
     install_build_tools
     install_go
     install_serverpanel
