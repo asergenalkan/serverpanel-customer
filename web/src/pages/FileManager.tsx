@@ -98,6 +98,7 @@ export default function FileManager() {
   const [showNewFile, setShowNewFile] = useState(false);
   const [showRename, setShowRename] = useState<FileItem | null>(null);
   const [showEditor, setShowEditor] = useState<{ path: string; content: string; name: string } | null>(null);
+  const [showPreview, setShowPreview] = useState<{ path: string; name: string; type: 'image' } | null>(null);
   
   // Form states
   const [newFolderName, setNewFolderName] = useState('');
@@ -135,13 +136,45 @@ export default function FileManager() {
     setSelectedFiles(new Set());
   };
 
+  // Check if file is editable (text-based)
+  const isEditableFile = (ext: string): boolean => {
+    const editableExtensions = [
+      'txt', 'md', 'log', 'ini', 'conf', 'cfg', 'json', 'xml', 'yaml', 'yml',
+      'html', 'htm', 'css', 'scss', 'sass', 'less',
+      'js', 'jsx', 'ts', 'tsx', 'mjs', 'cjs',
+      'php', 'py', 'rb', 'go', 'java', 'c', 'cpp', 'h', 'hpp', 'cs',
+      'sh', 'bash', 'zsh', 'fish', 'ps1', 'bat', 'cmd',
+      'sql', 'htaccess', 'env', 'gitignore', 'dockerignore',
+      'dockerfile', 'makefile', 'cmake', 'toml', 'lock'
+    ];
+    return editableExtensions.includes(ext.toLowerCase());
+  };
+
+  // Check if file is an image
+  const isImageFile = (ext: string): boolean => {
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'];
+    return imageExtensions.includes(ext.toLowerCase());
+  };
+
   // Handle file click
   const handleFileClick = (file: FileItem) => {
     if (file.is_dir) {
       navigateTo(file.path);
-    } else {
-      // Open file in editor
+    } else if (isImageFile(file.extension || '')) {
+      // Show image preview
+      setShowPreview({ path: file.path, name: file.name, type: 'image' });
+    } else if (isEditableFile(file.extension || '')) {
+      // Open in editor
       openFile(file);
+    } else {
+      // Download other files
+      const url = filesAPI.download(file.path);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
   };
 
@@ -783,6 +816,35 @@ export default function FileManager() {
                   <Check className="w-4 h-4 mr-1" />
                   Kaydet
                 </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Image Preview Modal */}
+        {showPreview && (
+          <div 
+            className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowPreview(null)}
+          >
+            <div className="relative max-w-4xl max-h-[90vh]" onClick={e => e.stopPropagation()}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute -top-10 right-0 text-white hover:bg-white/20"
+                onClick={() => setShowPreview(null)}
+              >
+                <X className="w-6 h-6" />
+              </Button>
+              <img
+                src={filesAPI.download(showPreview.path)}
+                alt={showPreview.name}
+                className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+              />
+              <div className="absolute -bottom-10 left-0 right-0 text-center text-white">
+                <span className="bg-black/50 px-3 py-1 rounded-full text-sm">
+                  {showPreview.name}
+                </span>
               </div>
             </div>
           </div>
