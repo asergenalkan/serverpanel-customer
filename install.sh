@@ -682,11 +682,12 @@ install_phpmyadmin() {
 \$cfg['Servers'][\$i]['auth_type'] = 'signon';
 \$cfg['Servers'][\$i]['SignonSession'] = 'SignonSession';
 \$cfg['Servers'][\$i]['SignonURL'] = '/pma-signon.php';
-\$cfg['Servers'][\$i]['LogoutURL'] = '/phpmyadmin/';
+\$cfg['Servers'][\$i]['LogoutURL'] = '/pma-logout.php';
 \$cfg['Servers'][\$i]['host'] = 'localhost';
 \$cfg['Servers'][\$i]['compress'] = false;
 \$cfg['Servers'][\$i]['AllowNoPassword'] = false;
 
+\$cfg['LoginCookieValidity'] = 1800;
 \$cfg['UploadDir'] = '';
 \$cfg['SaveDir'] = '';
 PMACONFIG
@@ -695,7 +696,7 @@ PMACONFIG
     log_done "phpMyAdmin config oluşturuldu"
     
     # Signon PHP script'i oluştur (Go backend'den credential çeker)
-    log_progress "Signon script oluşturuluyor"
+    log_progress "SSO scriptleri oluşturuluyor"
     cat > /var/www/html/pma-signon.php << 'SCRIPTEOF'
 <?php
 /**
@@ -705,7 +706,8 @@ PMACONFIG
 
 $token = $_GET['token'] ?? '';
 if (empty($token)) {
-    header('Location: /phpmyadmin/');
+    // Token yoksa panele yönlendir (döngüyü önle)
+    header('Location: http://' . $_SERVER['HTTP_HOST'] . ':8443/databases');
     exit;
 }
 
@@ -722,12 +724,15 @@ $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);
 
 if ($httpCode !== 200 || empty($response)) {
-    die('Token geçersiz veya süresi dolmuş');
+    // Token geçersizse panele yönlendir
+    header('Location: http://' . $_SERVER['HTTP_HOST'] . ':8443/databases');
+    exit;
 }
 
 $data = json_decode($response, true);
 if (!$data || empty($data['user']) || empty($data['password'])) {
-    die('Credential alınamadı');
+    header('Location: http://' . $_SERVER['HTTP_HOST'] . ':8443/databases');
+    exit;
 }
 
 // Session ayarları - path '/' olmalı ki phpMyAdmin okuyabilsin
@@ -757,13 +762,59 @@ exit;
 SCRIPTEOF
     chown www-data:www-data /var/www/html/pma-signon.php
     chmod 644 /var/www/html/pma-signon.php
-    log_done "Signon script oluşturuldu"
+    
+    # Logout PHP script'i oluştur (session temizler)
+    cat > /var/www/html/pma-logout.php << 'LOGOUTEOF'
+<?php
+/**
+ * ServerPanel - phpMyAdmin Logout
+ * Session'ı temizler ve panele yönlendirir
+ */
+
+// SignonSession'ı temizle
+ini_set('session.use_cookies', 'true');
+session_set_cookie_params(0, '/', '', false, true);
+session_name('SignonSession');
+@session_start();
+$_SESSION = array();
+if (ini_get("session.use_cookies")) {
+    $params = session_get_cookie_params();
+    setcookie(session_name(), '', time() - 42000, $params["path"], $params["domain"], $params["secure"], $params["httponly"]);
+}
+@session_destroy();
+
+// phpMyAdmin cookie'lerini de sil
+setcookie('phpMyAdmin', '', time() - 3600, '/');
+setcookie('phpMyAdmin', '', time() - 3600, '/phpmyadmin/');
+setcookie('pmaUser-1', '', time() - 3600, '/');
+setcookie('pmaUser-1', '', time() - 3600, '/phpmyadmin/');
+
+// Panele yönlendir
+header('Location: http://' . $_SERVER['HTTP_HOST'] . ':8443/databases');
+exit;
+LOGOUTEOF
+    chown www-data:www-data /var/www/html/pma-logout.php
+    chmod 644 /var/www/html/pma-logout.php
+    log_done "SSO scriptleri oluşturuldu"
+    
+    # Apache rewrite kuralı - phpMyAdmin logout'unu intercept et
+    log_progress "Apache logout redirect ayarlanıyor"
+    cat > /etc/apache2/conf-available/phpmyadmin-logout.conf << 'APACHECONF'
+# ServerPanel - phpMyAdmin Logout Redirect
+<Directory /usr/share/phpmyadmin>
+    RewriteEngine On
+    RewriteCond %{QUERY_STRING} route=/logout
+    RewriteRule ^index\.php$ /pma-logout.php [R=302,L]
+</Directory>
+APACHECONF
+    a2enconf phpmyadmin-logout > /dev/null 2>&1
+    log_done "Apache logout redirect ayarlandı"
     
     systemctl reload apache2
     
     sleep 2
-    if curl -s http://localhost/phpmyadmin/ 2>/dev/null | grep -qi "phpmyadmin"; then
-        log_info "phpMyAdmin erişimi: başarılı ✓"
+    if curl -s http://localhost/phpmyadmin/ 2>/dev/null | grep -qi "phpmyadmin\|signon\|redirect"; then
+        log_info "phpMyAdmin SSO: hazır ✓"
     else
         log_warn "phpMyAdmin erişimi doğrulanamadı"
     fi
