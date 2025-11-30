@@ -203,9 +203,24 @@ configure_mysql() {
     
     # MySQL config dosyasını kontrol et
     if [[ ! -f /etc/mysql/my.cnf ]] && [[ ! -f /etc/mysql/mysql.cnf ]]; then
-        log_warn "MySQL config dosyası bulunamadı, yeniden yapılandırılıyor..."
-        DEBIAN_FRONTEND=noninteractive apt-get install --reinstall -y mysql-server mysql-client > /dev/null 2>&1
-        sleep 2
+        log_warn "MySQL config dosyası bulunamadı, yeniden kurulum yapılıyor..."
+        
+        # Tamamen kaldır
+        systemctl stop mysql > /dev/null 2>&1
+        DEBIAN_FRONTEND=noninteractive apt-get purge -y mysql-server mysql-client mysql-common > /dev/null 2>&1
+        rm -rf /var/lib/mysql /etc/mysql /var/run/mysqld > /dev/null 2>&1
+        apt-get autoremove -y > /dev/null 2>&1
+        apt-get autoclean > /dev/null 2>&1
+        
+        # Yeniden kur
+        DEBIAN_FRONTEND=noninteractive apt-get install -y mysql-server mysql-client > /dev/null 2>&1
+        sleep 3
+        
+        if [[ ! -f /etc/mysql/my.cnf ]] && [[ ! -f /etc/mysql/mysql.cnf ]]; then
+            log_error "MySQL kurulumu başarısız!"
+            exit 1
+        fi
+        log_done "MySQL yeniden kuruldu"
     fi
     
     # MySQL socket dizinini oluştur
