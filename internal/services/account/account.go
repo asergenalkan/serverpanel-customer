@@ -247,11 +247,18 @@ func (s *Service) createSystemUser(username, homeDir string) error {
 		return errors.New("system user creation only supported on Linux")
 	}
 
+	// Check if user already exists
+	checkCmd := exec.Command("id", username)
+	if err := checkCmd.Run(); err == nil {
+		return fmt.Errorf("system user '%s' already exists", username)
+	}
+
 	cmd := exec.Command("useradd", "-m", "-d", homeDir, "-s", "/bin/bash", username)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("useradd failed: %s - %w", string(output), err)
 	}
 
+	log.Printf("✅ System user created: %s", username)
 	return nil
 }
 
@@ -527,10 +534,18 @@ func (s *Service) DeleteAccount(userID int64) error {
 
 	// Delete system resources (Linux user)
 	if config.IsDevelopment() {
-		log.Printf(" [SIMÜLASYON] userdel -r %s", username)
-		log.Printf(" [SIMÜLASYON] rm -rf %s", homeDir)
+		log.Printf("🔧 [SIMÜLASYON] userdel -r %s", username)
+		log.Printf("🔧 [SIMÜLASYON] rm -rf %s", homeDir)
 	} else if s.cfg.IsLinux {
-		exec.Command("userdel", "-r", username).Run()
+		cmd := exec.Command("userdel", "-r", username)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			log.Printf("⚠️ userdel failed for %s: %v - %s", username, err, string(output))
+			// Try without -r flag if home dir doesn't exist
+			cmd2 := exec.Command("userdel", username)
+			if output2, err2 := cmd2.CombinedOutput(); err2 != nil {
+				log.Printf("⚠️ userdel (no -r) also failed for %s: %v - %s", username, err2, string(output2))
+			}
+		}
 	}
 
 	// Always try to delete the home directory
