@@ -456,6 +456,43 @@ func (s *Service) DeleteAccount(userID int64) error {
 
 	homeDir := filepath.Join(s.cfg.HomeBaseDir, username)
 
+	// Get all domains BEFORE deleting from database
+	var domains []string
+	rows, err := s.db.Query("SELECT name FROM domains WHERE user_id = ?", userID)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var domainName string
+			if rows.Scan(&domainName) == nil {
+				domains = append(domains, domainName)
+			}
+		}
+	}
+
+	// Delete web server configs for all domains
+	driverType := webserver.DriverApache
+	if s.cfg.WebServer == "nginx" {
+		driverType = webserver.DriverNginx
+	}
+	driver := webserver.NewDriver(driverType, s.cfg.SimulateMode, s.cfg.SimulateBasePath)
+
+	for _, domainName := range domains {
+		if err := driver.DeleteVhost(domainName); err != nil {
+			log.Printf("Warning: failed to delete vhost for %s: %v", domainName, err)
+		}
+		// Delete DNS zone
+		dnsManager := dns.NewManager(s.cfg.SimulateMode, s.cfg.SimulateBasePath)
+		if err := dnsManager.DeleteZone(domainName); err != nil {
+			log.Printf("Warning: failed to delete DNS zone for %s: %v", domainName, err)
+		}
+	}
+
+	// Delete PHP-FPM pool
+	phpfpm := webserver.NewPHPFPMManager(s.cfg.SimulateMode, s.cfg.SimulateBasePath, s.cfg.PHPVersion)
+	if err := phpfpm.DeletePool(username); err != nil {
+		log.Printf("Warning: failed to delete PHP-FPM pool for %s: %v", username, err)
+	}
+
 	// Delete from database
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -473,41 +510,18 @@ func (s *Service) DeleteAccount(userID int64) error {
 		return err
 	}
 
-	// Delete system resources
+	// Delete system resources (Linux user)
 	if config.IsDevelopment() {
-		log.Printf("🔧 [SIMÜLASYON] userdel -r %s", username)
-		log.Printf("🔧 [SIMÜLASYON] rm -rf %s", homeDir)
+		log.Printf(" [SIMÜLASYON] userdel -r %s", username)
+		log.Printf(" [SIMÜLASYON] rm -rf %s", homeDir)
 	} else if s.cfg.IsLinux {
 		exec.Command("userdel", "-r", username).Run()
 	}
 
-	// Always delete the home directory in development
+	// Always try to delete the home directory
 	os.RemoveAll(homeDir)
 
-	// Delete web server config using driver
-	driverType := webserver.DriverApache
-	if s.cfg.WebServer == "nginx" {
-		driverType = webserver.DriverNginx
-	}
-	driver := webserver.NewDriver(driverType, s.cfg.SimulateMode, s.cfg.SimulateBasePath)
-
-	// Get all domains for this user and delete their configs
-	rows, err := s.db.Query("SELECT name FROM domains WHERE user_id = ?", userID)
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var domainName string
-			if rows.Scan(&domainName) == nil {
-				driver.DeleteVhost(domainName)
-			}
-		}
-	}
-
-	// Delete PHP-FPM pool
-	phpfpm := webserver.NewPHPFPMManager(s.cfg.SimulateMode, s.cfg.SimulateBasePath, s.cfg.PHPVersion)
-	phpfpm.DeletePool(username)
-
-	log.Printf("🗑️ Account deleted: %s", username)
+	log.Printf(" Account deleted: %s", username)
 	return nil
 }
 
