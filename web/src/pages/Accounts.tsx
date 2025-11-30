@@ -58,6 +58,7 @@ export default function Accounts() {
   const [usernameEdited, setUsernameEdited] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [addingAccount, setAddingAccount] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [error, setError] = useState('');
 
   // Domain'den kullanıcı adı üret
@@ -163,13 +164,23 @@ export default function Accounts() {
       return;
     }
 
+    setDeletingId(id);
+    
     try {
       const response = await accountsAPI.delete(id);
       if (response.data.success) {
-        fetchAccounts();
+        // Optimistic UI - hemen listeden kaldır
+        setAccounts(prev => prev.filter(a => a.id !== id));
+      } else {
+        alert('Hesap silinemedi: ' + (response.data.error || 'Bilinmeyen hata'));
+        fetchAccounts(); // Listeyi yenile
       }
     } catch (error) {
       console.error('Failed to delete account:', error);
+      alert('Hesap silinirken bir hata oluştu. Lütfen tekrar deneyin.');
+      fetchAccounts(); // Listeyi yenile
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -323,7 +334,12 @@ export default function Accounts() {
                   </thead>
                   <tbody>
                     {accounts.map((account) => (
-                      <tr key={account.id} className="border-b hover:bg-slate-50">
+                      <tr 
+                        key={account.id} 
+                        className={`border-b hover:bg-slate-50 transition-opacity ${
+                          deletingId === account.id ? 'opacity-50 pointer-events-none' : ''
+                        }`}
+                      >
                         <td className="py-3 px-4">
                           <div>
                             <p className="font-medium">{account.username}</p>
@@ -392,9 +408,14 @@ export default function Accounts() {
                               size="sm"
                               className="text-red-500 hover:text-red-700"
                               onClick={() => handleDeleteAccount(account.id, account.username)}
+                              disabled={deletingId === account.id}
                               title="Sil"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              {deletingId === account.id ? (
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
                             </Button>
                           </div>
                         </td>
