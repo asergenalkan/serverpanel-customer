@@ -370,8 +370,10 @@ install_build_tools() {
 install_serverpanel() {
     log_step "ServerPanel Kuruluyor"
     
+    # Önce /tmp'ye geç (mevcut dizin silinmiş olabilir)
+    cd /tmp
+    
     # Dizinleri oluştur
-    mkdir -p $INSTALL_DIR/public
     mkdir -p $DATA_DIR
     mkdir -p $LOG_DIR
     
@@ -385,13 +387,21 @@ install_serverpanel() {
     fi
     log_done "Kaynak kod indirildi"
     
-    cd $INSTALL_DIR
+    # Dizine geç
+    cd $INSTALL_DIR || { log_error "Dizine geçilemedi: $INSTALL_DIR"; exit 1; }
     
     # Backend derle (CGO_ENABLED=1 ile SQLite için)
     log_progress "Backend derleniyor (bu biraz sürebilir)"
     export PATH=$PATH:/usr/local/go/bin
-    CGO_ENABLED=1 /usr/local/go/bin/go build -o serverpanel ./cmd/panel > /dev/null 2>&1
+    CGO_ENABLED=1 /usr/local/go/bin/go build -o serverpanel ./cmd/panel
+    if [[ $? -ne 0 ]]; then
+        log_error "Backend derlenemedi!"
+        exit 1
+    fi
     log_done "Backend derlendi"
+    
+    # Binary'nin çalışabilir olduğunu kontrol et
+    chmod +x $INSTALL_DIR/serverpanel
     
     # Frontend indir (hazır build)
     log_progress "Frontend indiriliyor"
