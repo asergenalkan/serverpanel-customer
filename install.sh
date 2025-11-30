@@ -698,8 +698,17 @@ PMACONFIG
     log_progress "Signon script oluşturuluyor"
     cat > /var/www/html/pma-signon.php << 'SCRIPTEOF'
 <?php
+/**
+ * ServerPanel - phpMyAdmin Single Sign-On
+ */
+
+// Cookie ayarları - path '/' olmalı ki phpMyAdmin okuyabilsin
+ini_set('session.use_cookies', 'true');
+session_set_cookie_params(0, '/', '', false, true);
+
+// Session başlat
 session_name('SignonSession');
-session_start();
+@session_start();
 
 $token = $_GET['token'] ?? '';
 if (empty($token)) {
@@ -721,10 +730,17 @@ if (isset($data['exp']) && time() > $data['exp']) {
     die('Token süresi dolmuş');
 }
 
+// phpMyAdmin için gerekli session değişkenleri
 $_SESSION['PMA_single_signon_user'] = $data['user'];
 $_SESSION['PMA_single_signon_password'] = $data['password'];
 $_SESSION['PMA_single_signon_host'] = 'localhost';
+$_SESSION['PMA_single_signon_port'] = 3306;
+$_SESSION['PMA_single_signon_HMAC_secret'] = hash('sha1', uniqid(strval(rand()), true));
 
+// Session'ı kapat ve kaydet
+@session_write_close();
+
+// phpMyAdmin'e yönlendir
 $pmaUrl = '/phpmyadmin/index.php';
 if (!empty($data['db'])) {
     $pmaUrl .= '?db=' . urlencode($data['db']);
