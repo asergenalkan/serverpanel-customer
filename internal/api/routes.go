@@ -31,43 +31,45 @@ func SetupRoutes(router fiber.Router, db *database.DB) {
 	// Dashboard
 	protected.Get("/dashboard/stats", h.GetDashboardStats)
 
+	// Admin middleware for admin-only routes
+	admin := middleware.RoleMiddleware(models.RoleAdmin)
+
 	// Users (admin only)
-	adminOnly := protected.Group("/", middleware.RoleMiddleware(models.RoleAdmin))
-	adminOnly.Get("/users", h.ListUsers)
-	adminOnly.Post("/users", h.CreateUser)
-	adminOnly.Get("/users/:id", h.GetUser)
-	adminOnly.Put("/users/:id", h.UpdateUser)
-	adminOnly.Delete("/users/:id", h.DeleteUser)
+	protected.Get("/users", admin, h.ListUsers)
+	protected.Post("/users", admin, h.CreateUser)
+	protected.Get("/users/:id", admin, h.GetUser)
+	protected.Put("/users/:id", admin, h.UpdateUser)
+	protected.Delete("/users/:id", admin, h.DeleteUser)
 
 	// Packages (admin only)
-	adminOnly.Get("/packages", h.ListPackages)
-	adminOnly.Post("/packages", h.CreatePackage)
-	adminOnly.Put("/packages/:id", h.UpdatePackage)
-	adminOnly.Delete("/packages/:id", h.DeletePackage)
+	protected.Get("/packages", admin, h.ListPackages)
+	protected.Post("/packages", admin, h.CreatePackage)
+	protected.Put("/packages/:id", admin, h.UpdatePackage)
+	protected.Delete("/packages/:id", admin, h.DeletePackage)
 
 	// Accounts - Hosting hesapları (admin only)
-	adminOnly.Get("/accounts", h.ListAccounts)
-	adminOnly.Post("/accounts", h.CreateAccount)
-	adminOnly.Get("/accounts/:id", h.GetAccount)
-	adminOnly.Delete("/accounts/:id", h.DeleteAccount)
-	adminOnly.Post("/accounts/:id/suspend", h.SuspendAccount)
-	adminOnly.Post("/accounts/:id/unsuspend", h.UnsuspendAccount)
+	protected.Get("/accounts", admin, h.ListAccounts)
+	protected.Post("/accounts", admin, h.CreateAccount)
+	protected.Get("/accounts/:id", admin, h.GetAccount)
+	protected.Delete("/accounts/:id", admin, h.DeleteAccount)
+	protected.Post("/accounts/:id/suspend", admin, h.SuspendAccount)
+	protected.Post("/accounts/:id/unsuspend", admin, h.UnsuspendAccount)
 
-	// Domains
+	// Domains (all authenticated users)
 	protected.Get("/domains", h.ListDomains)
 	protected.Post("/domains", h.CreateDomain)
 	protected.Get("/domains/:id", h.GetDomain)
 	protected.Delete("/domains/:id", h.DeleteDomain)
 
-	// Databases
+	// Databases (all authenticated users)
 	protected.Get("/databases", h.ListDatabases)
 	protected.Post("/databases", h.CreateDatabase)
 	protected.Delete("/databases/:id", h.DeleteDatabase)
 
 	// System (admin only)
-	adminOnly.Get("/system/stats", h.GetSystemStats)
-	adminOnly.Get("/system/services", h.GetServices)
-	adminOnly.Post("/system/services/:name/restart", h.RestartService)
+	protected.Get("/system/stats", admin, h.GetSystemStats)
+	protected.Get("/system/services", admin, h.GetServices)
+	protected.Post("/system/services/:name/restart", admin, h.RestartService)
 
 	// File Manager (all authenticated users)
 	protected.Get("/files/list", h.ListFiles)
