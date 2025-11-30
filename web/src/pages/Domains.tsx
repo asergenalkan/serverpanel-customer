@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { domainsAPI } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -51,6 +51,25 @@ export default function Domains() {
   useEffect(() => {
     fetchDomains();
   }, []);
+
+  // ESC key handler for modal
+  const closeModal = useCallback(() => {
+    setShowAddModal(false);
+    setError('');
+  }, []);
+
+  useEffect(() => {
+    if (!showAddModal) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeModal();
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showAddModal, closeModal]);
 
   const handleAddDomain = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -279,8 +298,11 @@ export default function Domains() {
 
       {/* Add Domain Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md mx-4">
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={closeModal}
+        >
+          <Card className="w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Yeni Domain Ekle</CardTitle>
               <Button
