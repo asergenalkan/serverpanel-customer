@@ -13,6 +13,9 @@ import {
   Cpu,
   HardDrive,
   MemoryStick,
+  FolderOpen,
+  Shield,
+  ExternalLink,
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -105,6 +108,193 @@ function SystemStatCard({
   );
 }
 
+// Admin Dashboard Component
+function AdminDashboard({ stats, loading }: { stats: DashboardStats | null; loading: boolean }) {
+  return (
+    <>
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        </div>
+      ) : (
+        <>
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <StatCard
+              title="Kullanıcılar"
+              value={stats?.total_users || 0}
+              icon={Users}
+              color="bg-blue-500"
+            />
+            <StatCard
+              title="Domainler"
+              value={stats?.total_domains || 0}
+              icon={Globe}
+              color="bg-green-500"
+            />
+            <StatCard
+              title="Veritabanları"
+              value={stats?.total_databases || 0}
+              icon={Database}
+              color="bg-purple-500"
+            />
+            <StatCard
+              title="E-posta Hesapları"
+              value={stats?.total_emails || 0}
+              icon={Mail}
+              color="bg-orange-500"
+            />
+          </div>
+
+          {/* System Stats */}
+          {stats?.system_stats && (
+            <>
+              <h2 className="text-lg font-semibold">Sistem Kaynakları</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <SystemStatCard
+                  title="CPU Kullanımı"
+                  used={stats.system_stats.cpu_usage}
+                  total={100}
+                  icon={Cpu}
+                />
+                <SystemStatCard
+                  title="Bellek"
+                  used={stats.system_stats.memory_used}
+                  total={stats.system_stats.memory_total}
+                  icon={MemoryStick}
+                />
+                <SystemStatCard
+                  title="Disk"
+                  used={stats.system_stats.disk_used}
+                  total={stats.system_stats.disk_total}
+                  icon={HardDrive}
+                />
+              </div>
+            </>
+          )}
+
+          {/* Quick Actions */}
+          <h2 className="text-lg font-semibold">Hızlı İşlemler</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Link to="/accounts">
+              <Button variant="outline" className="w-full h-auto py-4 flex-col gap-2">
+                <Users className="w-5 h-5" />
+                <span>Hesap Oluştur</span>
+              </Button>
+            </Link>
+            <Link to="/domains">
+              <Button variant="outline" className="w-full h-auto py-4 flex-col gap-2">
+                <Globe className="w-5 h-5" />
+                <span>Domainler</span>
+              </Button>
+            </Link>
+            <Button variant="outline" className="h-auto py-4 flex-col gap-2" disabled>
+              <Database className="w-5 h-5" />
+              <span>Veritabanları</span>
+            </Button>
+            <Button variant="outline" className="h-auto py-4 flex-col gap-2" disabled>
+              <Mail className="w-5 h-5" />
+              <span>E-posta</span>
+            </Button>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+// User Dashboard Component
+function UserDashboard({ user }: { user: { username: string; email: string } }) {
+  return (
+    <>
+      {/* Welcome Card */}
+      <Card className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+        <CardContent className="p-6">
+          <h2 className="text-2xl font-bold">Hoş Geldin, {user.username}! 👋</h2>
+          <p className="mt-2 opacity-90">
+            Hosting hesabınızı buradan yönetebilirsiniz.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <StatCard
+          title="Domain"
+          value="1"
+          icon={Globe}
+          color="bg-green-500"
+        />
+        <StatCard
+          title="Disk Kullanımı"
+          value="0 MB"
+          icon={HardDrive}
+          color="bg-blue-500"
+        />
+        <StatCard
+          title="E-posta Hesapları"
+          value="0"
+          icon={Mail}
+          color="bg-orange-500"
+        />
+      </div>
+
+      {/* Quick Actions */}
+      <h2 className="text-lg font-semibold">Hızlı İşlemler</h2>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Link to="/files">
+          <Button variant="outline" className="w-full h-auto py-4 flex-col gap-2">
+            <FolderOpen className="w-5 h-5" />
+            <span>Dosya Yöneticisi</span>
+          </Button>
+        </Link>
+        <Button variant="outline" className="h-auto py-4 flex-col gap-2" disabled>
+          <Database className="w-5 h-5" />
+          <span>phpMyAdmin</span>
+        </Button>
+        <Button variant="outline" className="h-auto py-4 flex-col gap-2" disabled>
+          <Mail className="w-5 h-5" />
+          <span>Webmail</span>
+        </Button>
+        <Button variant="outline" className="h-auto py-4 flex-col gap-2" disabled>
+          <Shield className="w-5 h-5" />
+          <span>SSL Sertifikası</span>
+        </Button>
+      </div>
+
+      {/* Website Info */}
+      <h2 className="text-lg font-semibold">Website Bilgileri</h2>
+      <Card>
+        <CardContent className="p-6">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between py-2 border-b">
+              <span className="text-muted-foreground">Domain</span>
+              <div className="flex items-center gap-2">
+                <span className="font-medium">{user.username}.com</span>
+                <a href={`http://${user.username}.com`} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="w-4 h-4 text-blue-500" />
+                </a>
+              </div>
+            </div>
+            <div className="flex items-center justify-between py-2 border-b">
+              <span className="text-muted-foreground">Document Root</span>
+              <code className="bg-slate-100 px-2 py-1 rounded text-sm">/home/{user.username}/public_html</code>
+            </div>
+            <div className="flex items-center justify-between py-2 border-b">
+              <span className="text-muted-foreground">PHP Sürümü</span>
+              <span className="font-medium">8.1</span>
+            </div>
+            <div className="flex items-center justify-between py-2">
+              <span className="text-muted-foreground">SSL Durumu</span>
+              <span className="text-yellow-600 font-medium">Aktif Değil</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -124,8 +314,15 @@ export default function Dashboard() {
       }
     };
 
-    fetchStats();
-  }, []);
+    // Only fetch stats for admin
+    if (user?.role === 'admin') {
+      fetchStats();
+    } else {
+      setLoading(false);
+    }
+  }, [user?.role]);
+
+  const isAdmin = user?.role === 'admin';
 
   return (
     <Layout>
@@ -134,94 +331,16 @@ export default function Dashboard() {
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">
-            Hoş geldin, {user?.username}! Sunucu durumu ve istatistikler
+            {isAdmin 
+              ? 'Sunucu durumu ve istatistikler' 
+              : 'Hosting hesabınızı yönetin'}
           </p>
         </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-          </div>
+        {isAdmin ? (
+          <AdminDashboard stats={stats} loading={loading} />
         ) : (
-          <>
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <StatCard
-                title="Kullanıcılar"
-                value={stats?.total_users || 0}
-                icon={Users}
-                color="bg-blue-500"
-              />
-              <StatCard
-                title="Domainler"
-                value={stats?.total_domains || 0}
-                icon={Globe}
-                color="bg-green-500"
-              />
-              <StatCard
-                title="Veritabanları"
-                value={stats?.total_databases || 0}
-                icon={Database}
-                color="bg-purple-500"
-              />
-              <StatCard
-                title="E-posta Hesapları"
-                value={stats?.total_emails || 0}
-                icon={Mail}
-                color="bg-orange-500"
-              />
-            </div>
-
-            {/* System Stats */}
-            {stats?.system_stats && (
-              <>
-                <h2 className="text-lg font-semibold">Sistem Kaynakları</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <SystemStatCard
-                    title="CPU Kullanımı"
-                    used={stats.system_stats.cpu_usage}
-                    total={100}
-                    icon={Cpu}
-                  />
-                  <SystemStatCard
-                    title="Bellek"
-                    used={stats.system_stats.memory_used}
-                    total={stats.system_stats.memory_total}
-                    icon={MemoryStick}
-                  />
-                  <SystemStatCard
-                    title="Disk"
-                    used={stats.system_stats.disk_used}
-                    total={stats.system_stats.disk_total}
-                    icon={HardDrive}
-                  />
-                </div>
-              </>
-            )}
-
-            {/* Quick Actions */}
-            <h2 className="text-lg font-semibold">Hızlı İşlemler</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Link to="/domains">
-                <Button variant="outline" className="w-full h-auto py-4 flex-col gap-2">
-                  <Globe className="w-5 h-5" />
-                  <span>Domain Ekle</span>
-                </Button>
-              </Link>
-              <Button variant="outline" className="h-auto py-4 flex-col gap-2" disabled>
-                <Database className="w-5 h-5" />
-                <span>Veritabanı Oluştur</span>
-              </Button>
-              <Button variant="outline" className="h-auto py-4 flex-col gap-2" disabled>
-                <Mail className="w-5 h-5" />
-                <span>E-posta Hesabı</span>
-              </Button>
-              <Button variant="outline" className="h-auto py-4 flex-col gap-2" disabled>
-                <Users className="w-5 h-5" />
-                <span>Kullanıcı Ekle</span>
-              </Button>
-            </div>
-          </>
+          user && <UserDashboard user={user} />
         )}
       </div>
     </Layout>

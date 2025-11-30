@@ -22,9 +22,9 @@ interface LayoutProps {
   children: ReactNode;
 }
 
-const menuItems = [
+// User menu items (for hosting users)
+const userMenuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-  { icon: Globe, label: 'Domainler', href: '/domains' },
   { icon: FolderOpen, label: 'Dosya Yöneticisi', href: '/files', disabled: true },
   { icon: Database, label: 'Veritabanları', href: '/databases', disabled: true },
   { icon: Mail, label: 'E-posta', href: '/email', disabled: true },
@@ -33,8 +33,11 @@ const menuItems = [
   { icon: Clock, label: 'Cron Jobs', href: '/cron', disabled: true },
 ];
 
+// Admin menu items
 const adminMenuItems = [
+  { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
   { icon: Users, label: 'Hosting Hesapları', href: '/accounts' },
+  { icon: Globe, label: 'Tüm Domainler', href: '/domains' },
   { icon: Package, label: 'Paketler', href: '/packages', disabled: true },
   { icon: Settings, label: 'Ayarlar', href: '/settings', disabled: true },
 ];
@@ -57,38 +60,41 @@ export default function Layout({ children }: LayoutProps) {
 
         {/* Menu */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 mb-2">
-            Hosting
-          </p>
-          {menuItems.map((item) => (
-            <Link
-              key={item.href}
-              to={item.disabled ? '#' : item.href}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                location.pathname === item.href
-                  ? 'bg-blue-50 text-blue-600'
-                  : item.disabled
-                  ? 'text-slate-300 cursor-not-allowed'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
-              onClick={(e) => item.disabled && e.preventDefault()}
-            >
-              <item.icon className="w-5 h-5" />
-              {item.label}
-              {item.disabled && (
-                <span className="ml-auto text-xs bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded">
-                  Yakında
-                </span>
-              )}
-            </Link>
-          ))}
-
-          {user?.role === 'admin' && (
+          {/* Admin Menu */}
+          {user?.role === 'admin' ? (
             <>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 mb-2 mt-6">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 mb-2">
                 Yönetim
               </p>
               {adminMenuItems.map((item) => (
+                <Link
+                  key={item.href}
+                  to={item.disabled ? '#' : item.href}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    location.pathname === item.href
+                      ? 'bg-blue-50 text-blue-600'
+                      : item.disabled
+                      ? 'text-slate-300 cursor-not-allowed'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                  onClick={(e) => item.disabled && e.preventDefault()}
+                >
+                  <item.icon className="w-5 h-5" />
+                  {item.label}
+                  {item.disabled && (
+                    <span className="ml-auto text-xs bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded">
+                      Yakında
+                    </span>
+                  )}
+                </Link>
+              ))}
+            </>
+          ) : (
+            <>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-4 mb-2">
+                Hesabım
+              </p>
+              {userMenuItems.map((item) => (
                 <Link
                   key={item.href}
                   to={item.disabled ? '#' : item.href}
