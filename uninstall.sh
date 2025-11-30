@@ -10,11 +10,15 @@ NC='\033[0m'
 
 echo -e "${YELLOW}⚠️  ServerPanel Tam Temizleme${NC}"
 echo "Bu işlem TÜM verileri silecek!"
-read -p "Devam etmek istiyor musunuz? (yes/no): " confirm
 
-if [[ "$confirm" != "yes" ]]; then
-    echo "İptal edildi."
-    exit 0
+# --force flag kontrolü
+if [[ "$1" != "--force" && "$1" != "-f" ]]; then
+    read -p "Devam etmek istiyor musunuz? (yes/no): " confirm
+    if [[ "$confirm" != "yes" ]]; then
+        echo "İptal edildi."
+        echo "Force modda çalıştırmak için: uninstall.sh --force"
+        exit 0
+    fi
 fi
 
 echo -e "\n${YELLOW}Temizleme başlıyor...${NC}\n"
