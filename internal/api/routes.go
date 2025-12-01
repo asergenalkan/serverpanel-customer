@@ -79,6 +79,13 @@ func SetupRoutes(router fiber.Router, db *database.DB) {
 	protected.Get("/system/services", admin, h.GetServices)
 	protected.Post("/system/services/:name/restart", admin, h.RestartService)
 
+	// SSL Certificates (all authenticated users)
+	protected.Get("/ssl", h.ListSSLCertificates)
+	protected.Get("/ssl/:id", h.GetSSLCertificate)
+	protected.Post("/ssl/:id/issue", h.IssueSSLCertificate)
+	protected.Post("/ssl/:id/renew", h.RenewSSLCertificate)
+	protected.Delete("/ssl/:id", h.RevokeSSLCertificate)
+
 	// File Manager (all authenticated users)
 	protected.Get("/files/list", h.ListFiles)
 	protected.Get("/files/read", h.ReadFile)

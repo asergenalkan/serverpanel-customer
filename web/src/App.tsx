@@ -7,6 +7,7 @@ import Domains from '@/pages/Domains';
 import Accounts from '@/pages/Accounts';
 import FileManager from '@/pages/FileManager';
 import Databases from '@/pages/Databases';
+import SSL from '@/pages/SSL';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -114,6 +115,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Databases />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/ssl"
+        element={
+          <ProtectedRoute>
+            <SSL />
           </ProtectedRoute>
         }
       />

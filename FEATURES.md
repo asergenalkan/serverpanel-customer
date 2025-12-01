@@ -17,7 +17,7 @@ Bu dosya WHM/cPanel özelliklerini analiz eder ve ServerPanel'e eklenecek özell
 | Veritabanı Yönetimi | ✅ | ⚠️ API var | %20 |
 | Dosya Yönetimi | ✅ | ❌ | %0 |
 | FTP Yönetimi | ✅ | ❌ | %0 |
-| SSL/TLS | ✅ | ⚠️ Service var | %30 |
+| SSL/TLS | ✅ | ✅ Let's Encrypt | %80 |
 | Backup | ✅ | ❌ | %0 |
 | Cron Jobs | ✅ | ❌ | %0 |
 | Güvenlik | ✅ | ⚠️ Temel | %20 |
@@ -319,25 +319,20 @@ Henüz yok
 
 ## 🔒 9. SSL/TLS YÖNETİMİ
 
-### Mevcut ❌
-Henüz yok
+### Mevcut ✅
+- [x] Let's Encrypt entegrasyonu (certbot)
+- [x] Tek tıkla SSL sertifikası alma
+- [x] Otomatik yenileme (cron job)
+- [x] SSL durumu görüntüleme
+- [x] Sertifika yenileme
+- [x] Sertifika silme/iptal
 
-### Eklenecek Özellikler
-- [ ] **SSL Sertifika Yönetimi**
-  - Sertifika yükleme
+### Eksik Özellikler
+- [ ] **Gelişmiş SSL Yönetimi**
+  - Manuel sertifika yükleme
   - Private key yönetimi
   - CSR oluşturma
-  - Sertifika görüntüleme
-- [ ] **Let's Encrypt (AutoSSL)**
-  - Otomatik sertifika alma
-  - Otomatik yenileme
   - Wildcard SSL
-- [ ] **SSL Kurulumu**
-  - Domain'e SSL atama
-  - SNI desteği
-- [ ] **SSL Durumu**
-  - Sertifika son kullanma
-  - Uyarı sistemi
 - [ ] **Force HTTPS**
   - Otomatik yönlendirme
   - HSTS ayarları
@@ -607,8 +602,8 @@ Bir hosting müşterisinin temel ihtiyaçlarına göre sıralandı:
 | 4 | ✅ DNS Zone (BIND9) | Domain yönlendirme | ✅ Tamam |
 | 5 | ✅ Welcome Page | İlk açılış sayfası | ✅ Tamam |
 | 6 | ✅ Dosya Yöneticisi | Site dosyalarını yükleme | ✅ Tamam |
-| 7 | Veritabanı UI + phpMyAdmin | WordPress vb. kurulum | ⏳ Bekliyor |
-| 8 | SSL/Let's Encrypt | HTTPS zorunlu | ⏳ Bekliyor |
+| 7 | Veritabanı UI + phpMyAdmin | WordPress vb. kurulum | ✅ Tamam |
+| 8 | SSL/Let's Encrypt | HTTPS zorunlu | ✅ Tamam |
 
 ### 🎯 Faz 2 - Temel Hosting
 > Müşteri e-posta kullanabilmeli, yedek alabilmeli
@@ -652,7 +647,7 @@ Bir hosting müşterisinin temel ihtiyaçlarına göre sıralandı:
 - **Bekleyen**: 140+ özellik
 - **Toplam İlerleme**: ~%15
 
-### ✅ Son Tamamlanan Özellikler (30 Kasım 2025)
+### ✅ Son Tamamlanan Özellikler (2 Aralık 2025)
 - Tek komutla kurulum scripti (install.sh)
 - Linux user yönetimi (useradd/userdel)
 - Apache vhost yönetimi (a2ensite/a2dissite)
@@ -661,7 +656,12 @@ Bir hosting müşterisinin temel ihtiyaçlarına göre sıralandı:
 - Home dizini izin yönetimi (711/755)
 - Welcome page otomatik oluşturma
 - Hesap CRUD (Create/Read/Update/Delete)
+- Veritabanı yönetimi + phpMyAdmin SSO
+- **SSL/Let's Encrypt entegrasyonu**
+  - Tek tıkla SSL sertifikası
+  - Otomatik yenileme
+  - SSL durumu görüntüleme
 
 ---
 
-*Son güncelleme: 30 Kasım 2025*
+*Son güncelleme: 2 Aralık 2025*

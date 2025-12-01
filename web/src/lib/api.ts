@@ -108,6 +108,15 @@ export const accountsAPI = {
   unsuspend: (id: number) => api.post(`/accounts/${id}/unsuspend`),
 };
 
+// SSL Certificates
+export const sslAPI = {
+  list: () => api.get('/ssl'),
+  get: (domainId: number) => api.get(`/ssl/${domainId}`),
+  issue: (domainId: number) => api.post(`/ssl/${domainId}/issue`),
+  renew: (domainId: number) => api.post(`/ssl/${domainId}/renew`),
+  revoke: (domainId: number) => api.delete(`/ssl/${domainId}`),
+};
+
 // File Manager
 export const filesAPI = {
   list: (path: string = '/') => api.get('/files/list', { params: { path } }),

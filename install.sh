@@ -899,6 +899,31 @@ EOF
     fi
 }
 
+configure_ssl() {
+    log_step "SSL/Let's Encrypt Yapılandırılıyor"
+    
+    # Certbot zaten kurulu (install_packages'da)
+    log_progress "SSL auto-renewal yapılandırılıyor"
+    
+    # Certbot auto-renewal cron job
+    cat > /etc/cron.d/certbot-renew << 'CRONEOF'
+# Let's Encrypt SSL sertifikalarını otomatik yenile
+0 0,12 * * * root certbot renew --quiet --post-hook "systemctl reload apache2"
+CRONEOF
+    
+    chmod 644 /etc/cron.d/certbot-renew
+    log_done "SSL auto-renewal yapılandırıldı"
+    
+    # Apache SSL modülünü etkinleştir
+    log_progress "Apache SSL modülü etkinleştiriliyor"
+    a2enmod ssl > /dev/null 2>&1
+    a2enmod rewrite > /dev/null 2>&1
+    systemctl reload apache2 > /dev/null 2>&1
+    log_done "Apache SSL modülü etkinleştirildi"
+    
+    log_info "Let's Encrypt: hazır ✓"
+}
+
 health_check() {
     log_step "Sistem Sağlık Kontrolü"
     
@@ -964,6 +989,7 @@ main() {
     install_go
     install_serverpanel
     create_service
+    configure_ssl
     health_check
     
     print_summary
