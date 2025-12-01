@@ -34,6 +34,10 @@ type PHPSettings struct {
 	MaxFileUploads    int    `json:"max_file_uploads"`
 	DisplayErrors     bool   `json:"display_errors"`
 	ErrorReporting    string `json:"error_reporting"`
+	// Package limits (for UI display)
+	MaxAllowedMemory   string `json:"max_allowed_memory,omitempty"`
+	MaxAllowedUpload   string `json:"max_allowed_upload,omitempty"`
+	MaxAllowedExecTime int    `json:"max_allowed_exec_time,omitempty"`
 }
 
 // GetInstalledPHPVersions returns all installed PHP versions on the server
@@ -91,11 +95,21 @@ func (h *Handler) GetDomainPHPSettings(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(int64)
 	role := c.Locals("role").(string)
 
-	// Get domain info
+	// Get domain info with package limits
 	var domain string
 	var ownerID int64
 	var phpVersion string
-	err = h.db.QueryRow("SELECT name, user_id, COALESCE(php_version, '8.1') FROM domains WHERE id = ?", domainID).Scan(&domain, &ownerID, &phpVersion)
+	var maxMemory, maxUpload string
+	var maxExecTime int
+	err = h.db.QueryRow(`
+		SELECT d.name, d.user_id, COALESCE(d.php_version, '8.1'),
+		       COALESCE(p.max_php_memory, '256M'), COALESCE(p.max_php_upload, '64M'), 
+		       COALESCE(p.max_php_execution_time, 300)
+		FROM domains d 
+		LEFT JOIN user_packages up ON up.user_id = d.user_id
+		LEFT JOIN packages p ON p.id = up.package_id
+		WHERE d.id = ?
+	`, domainID).Scan(&domain, &ownerID, &phpVersion, &maxMemory, &maxUpload, &maxExecTime)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(models.APIResponse{
 			Success: false,
@@ -113,9 +127,12 @@ func (h *Handler) GetDomainPHPSettings(c *fiber.Ctx) error {
 
 	// Get PHP settings from database
 	settings := PHPSettings{
-		DomainID:   domainID,
-		Domain:     domain,
-		PHPVersion: phpVersion,
+		DomainID:           domainID,
+		Domain:             domain,
+		PHPVersion:         phpVersion,
+		MaxAllowedMemory:   maxMemory,
+		MaxAllowedUpload:   maxUpload,
+		MaxAllowedExecTime: maxExecTime,
 	}
 
 	err = h.db.QueryRow(`
@@ -264,16 +281,22 @@ func (h *Handler) UpdateDomainPHPSettings(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(int64)
 	role := c.Locals("role").(string)
 
-	// Get domain info
+	// Get domain info with package limits
 	var domain, username string
 	var ownerID int64
 	var phpVersion string
+	var maxMemory, maxUpload string
+	var maxExecTime int
 	err = h.db.QueryRow(`
-		SELECT d.name, d.user_id, u.username, COALESCE(d.php_version, '8.1')
+		SELECT d.name, d.user_id, u.username, COALESCE(d.php_version, '8.1'),
+		       COALESCE(p.max_php_memory, '256M'), COALESCE(p.max_php_upload, '64M'), 
+		       COALESCE(p.max_php_execution_time, 300)
 		FROM domains d 
 		JOIN users u ON d.user_id = u.id 
+		LEFT JOIN user_packages up ON up.user_id = u.id
+		LEFT JOIN packages p ON p.id = up.package_id
 		WHERE d.id = ?
-	`, domainID).Scan(&domain, &ownerID, &username, &phpVersion)
+	`, domainID).Scan(&domain, &ownerID, &username, &phpVersion, &maxMemory, &maxUpload, &maxExecTime)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(models.APIResponse{
 			Success: false,
@@ -289,19 +312,23 @@ func (h *Handler) UpdateDomainPHPSettings(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate settings (apply limits for non-admin users)
+	// Validate settings (apply package limits for non-admin users)
 	if role != models.RoleAdmin {
-		// Limit memory to 512M for regular users
-		if !isValidMemoryLimit(req.MemoryLimit, "512M") {
-			req.MemoryLimit = "256M"
+		// Apply package memory limit
+		if !isValidMemoryLimit(req.MemoryLimit, maxMemory) {
+			req.MemoryLimit = maxMemory
 		}
-		// Limit execution time to 600 seconds
-		if req.MaxExecutionTime > 600 {
-			req.MaxExecutionTime = 300
+		// Apply package execution time limit
+		if req.MaxExecutionTime > maxExecTime {
+			req.MaxExecutionTime = maxExecTime
 		}
-		// Limit upload size to 128M
-		if !isValidMemoryLimit(req.UploadMaxFilesize, "128M") {
-			req.UploadMaxFilesize = "64M"
+		// Apply package upload size limit
+		if !isValidMemoryLimit(req.UploadMaxFilesize, maxUpload) {
+			req.UploadMaxFilesize = maxUpload
+		}
+		// post_max_size should be at least upload_max_filesize
+		if !isValidMemoryLimit(req.PostMaxSize, maxUpload) {
+			req.PostMaxSize = maxUpload
 		}
 	}
 

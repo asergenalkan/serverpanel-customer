@@ -60,6 +60,9 @@ func (db *DB) migrate() error {
 			max_databases INTEGER DEFAULT 1,
 			max_emails INTEGER DEFAULT 5,
 			max_ftp INTEGER DEFAULT 1,
+			max_php_memory TEXT DEFAULT '256M',
+			max_php_upload TEXT DEFAULT '64M',
+			max_php_execution_time INTEGER DEFAULT 300,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
 
@@ -182,6 +185,11 @@ func (db *DB) migrate() error {
 
 	// Add php_version column to domains if not exists
 	db.Exec(`ALTER TABLE domains ADD COLUMN php_version TEXT DEFAULT '8.1'`)
+
+	// Add PHP limit columns to packages if not exists
+	db.Exec(`ALTER TABLE packages ADD COLUMN max_php_memory TEXT DEFAULT '256M'`)
+	db.Exec(`ALTER TABLE packages ADD COLUMN max_php_upload TEXT DEFAULT '64M'`)
+	db.Exec(`ALTER TABLE packages ADD COLUMN max_php_execution_time INTEGER DEFAULT 300`)
 
 	// Create default admin user if not exists
 	if err := db.createDefaultAdmin(); err != nil {
