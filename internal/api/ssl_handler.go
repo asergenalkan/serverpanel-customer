@@ -42,9 +42,9 @@ func (h *Handler) ListSSLCertificates(c *fiber.Ctx) error {
 	var args []interface{}
 
 	if role == models.RoleAdmin {
-		query = `SELECT d.id, d.domain FROM domains d ORDER BY d.domain`
+		query = `SELECT d.id, d.name FROM domains d ORDER BY d.name`
 	} else {
-		query = `SELECT d.id, d.domain FROM domains d WHERE d.user_id = ? ORDER BY d.domain`
+		query = `SELECT d.id, d.name FROM domains d WHERE d.user_id = ? ORDER BY d.name`
 		args = append(args, userID)
 	}
 
@@ -115,7 +115,7 @@ func (h *Handler) GetSSLCertificate(c *fiber.Ctx) error {
 	// Get domain
 	var domain string
 	var ownerID int64
-	err = h.db.QueryRow("SELECT domain, user_id FROM domains WHERE id = ?", domainID).Scan(&domain, &ownerID)
+	err = h.db.QueryRow("SELECT name, user_id FROM domains WHERE id = ?", domainID).Scan(&domain, &ownerID)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(models.APIResponse{
 			Success: false,
@@ -177,7 +177,7 @@ func (h *Handler) IssueSSLCertificate(c *fiber.Ctx) error {
 	var domain, username string
 	var ownerID int64
 	err = h.db.QueryRow(`
-		SELECT d.domain, d.user_id, u.username 
+		SELECT d.name, d.user_id, u.username 
 		FROM domains d 
 		JOIN users u ON d.user_id = u.id 
 		WHERE d.id = ?`, domainID).Scan(&domain, &ownerID, &username)
@@ -257,7 +257,7 @@ func (h *Handler) RenewSSLCertificate(c *fiber.Ctx) error {
 	// Get domain
 	var domain string
 	var ownerID int64
-	err = h.db.QueryRow("SELECT domain, user_id FROM domains WHERE id = ?", domainID).Scan(&domain, &ownerID)
+	err = h.db.QueryRow("SELECT name, user_id FROM domains WHERE id = ?", domainID).Scan(&domain, &ownerID)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(models.APIResponse{
 			Success: false,
@@ -304,7 +304,7 @@ func (h *Handler) RevokeSSLCertificate(c *fiber.Ctx) error {
 	var domain, username string
 	var ownerID int64
 	err = h.db.QueryRow(`
-		SELECT d.domain, d.user_id, u.username 
+		SELECT d.name, d.user_id, u.username 
 		FROM domains d 
 		JOIN users u ON d.user_id = u.id 
 		WHERE d.id = ?`, domainID).Scan(&domain, &ownerID, &username)
