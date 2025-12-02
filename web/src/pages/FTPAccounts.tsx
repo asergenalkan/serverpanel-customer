@@ -65,6 +65,7 @@ export default function FTPAccountsPage() {
   const [dirSuggestions, setDirSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [unlimitedQuota, setUnlimitedQuota] = useState(true);
+  const [creating, setCreating] = useState(false);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -126,6 +127,7 @@ export default function FTPAccountsPage() {
       return;
     }
 
+    setCreating(true);
     try {
       // directory alanını backend'e gönder (backend tam path'e çevirecek)
       const response = await ftpAPI.create({
@@ -144,6 +146,8 @@ export default function FTPAccountsPage() {
       }
     } catch (error: any) {
       setMessage({ type: 'error', text: error.response?.data?.error || 'Oluşturma başarısız' });
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -649,11 +653,22 @@ export default function FTPAccountsPage() {
               </div>
 
               <div className="flex justify-end gap-2 mt-6 pt-4 border-t">
-                <Button variant="outline" onClick={() => setShowCreateModal(false)}>
+                <Button variant="outline" onClick={() => setShowCreateModal(false)} disabled={creating}>
                   İptal
                 </Button>
-                <Button onClick={handleCreate} className="bg-blue-600 hover:bg-blue-700">
-                  FTP Hesabı Oluştur
+                <Button 
+                  onClick={handleCreate} 
+                  className="bg-blue-600 hover:bg-blue-700 min-w-[160px]"
+                  disabled={creating}
+                >
+                  {creating ? (
+                    <span className="flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Oluşturuluyor...
+                    </span>
+                  ) : (
+                    'FTP Hesabı Oluştur'
+                  )}
                 </Button>
               </div>
             </div>
