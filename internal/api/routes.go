@@ -162,4 +162,15 @@ func SetupRoutes(router fiber.Router, db *database.DB) {
 	protected.Get("/server/processes", admin, h.GetTopProcesses)
 	protected.Get("/server/queue", admin, h.GetTaskQueue)
 	protected.Post("/server/queue/flush", admin, h.FlushMailQueue)
+
+	// Software Manager (admin only)
+	protected.Get("/software/overview", admin, h.GetSoftwareOverview)
+	protected.Post("/software/php/install", admin, h.InstallPHPVersion)
+	protected.Post("/software/php/uninstall", admin, h.UninstallPHPVersion)
+	protected.Post("/software/php/extension/install", admin, h.InstallPHPExtension)
+	protected.Post("/software/php/extension/uninstall", admin, h.UninstallPHPExtension)
+	protected.Post("/software/apache/module/enable", admin, h.EnableApacheModule)
+	protected.Post("/software/apache/module/disable", admin, h.DisableApacheModule)
+	protected.Post("/software/install", admin, h.InstallSoftware)
+	protected.Post("/software/uninstall", admin, h.UninstallSoftware)
 }

@@ -18,6 +18,7 @@ import ServerInfo from '@/pages/server/ServerInfo';
 import DailyLog from '@/pages/server/DailyLog';
 import TopProcesses from '@/pages/server/TopProcesses';
 import TaskQueue from '@/pages/server/TaskQueue';
+import SoftwareManager from '@/pages/SoftwareManager';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -214,6 +215,14 @@ function AppRoutes() {
         element={
           <AdminRoute>
             <TaskQueue />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/software"
+        element={
+          <AdminRoute>
+            <SoftwareManager />
           </AdminRoute>
         }
       />

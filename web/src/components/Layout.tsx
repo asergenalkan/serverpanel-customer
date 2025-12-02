@@ -74,6 +74,9 @@ const serverStatusItems = [
   { icon: ListTodo, label: 'Task Queue', href: '/server/queue' },
 ];
 
+// Software manager menu item (admin only)
+const softwareMenuItem = { icon: Package, label: 'Yazılım Yöneticisi', href: '/software' };
+
 export default function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -182,6 +185,19 @@ export default function Layout({ children }: LayoutProps) {
                   </div>
                 )}
               </div>
+
+              {/* Software Manager */}
+              <Link
+                to={softwareMenuItem.href}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  location.pathname === softwareMenuItem.href
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                }`}
+              >
+                <softwareMenuItem.icon className="w-5 h-5" />
+                {softwareMenuItem.label}
+              </Link>
             </>
           ) : (
             <>
