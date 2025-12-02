@@ -4,7 +4,7 @@ Bu dosya WHM/cPanel özelliklerini analiz eder ve ServerPanel'e eklenecek özell
 
 ---
 
-## 📊 Mevcut Durum Özeti (Son Güncelleme: 2 Aralık 2024)
+## 📊 Mevcut Durum Özeti (Son Güncelleme: 3 Aralık 2024)
 
 | Kategori | cPanel/WHM | ServerPanel | Tamamlanma |
 |----------|------------|-------------|------------|
@@ -12,21 +12,30 @@ Bu dosya WHM/cPanel özelliklerini analiz eder ve ServerPanel'e eklenecek özell
 | Dashboard | ✅ | ✅ Sistem istatistikleri | %85 |
 | Kullanıcı Yönetimi | ✅ | ✅ CRUD + Paket atama | %75 |
 | Domain Yönetimi | ✅ | ✅ Domain + Subdomain + Silme seçenekleri | %95 |
-| DNS Yönetimi | ✅ | ✅ BIND9 Zone Editor + A kayıt ekleme | %90 |
-| E-posta Yönetimi | ✅ | ⚠️ API var | %10 |
+| DNS Yönetimi | ✅ | ✅ BIND9 Zone Editor + SPF/DMARC | %95 |
+| **E-posta Yönetimi** | ✅ | ✅ **Postfix + Dovecot + Roundcube + DKIM** | **%85** |
 | Veritabanı Yönetimi | ✅ | ✅ phpMyAdmin SSO | %85 |
 | Dosya Yönetimi | ✅ | ✅ Tam fonksiyonel | %95 |
 | FTP Yönetimi | ✅ | ✅ Pure-FTPd | %90 |
-| SSL/TLS | ✅ | ✅ Let's Encrypt + Subdomain SSL | %95 |
+| SSL/TLS | ✅ | ✅ Let's Encrypt + Otomatik Vhost | %98 |
 | PHP Yönetimi | ✅ | ✅ MultiPHP | %80 |
 | Backup | ✅ | ❌ | %0 |
 | Cron Jobs | ✅ | ❌ | %0 |
-| Güvenlik | ✅ | ⚠️ Temel | %20 |
+| Güvenlik | ✅ | ⚠️ Temel + SpamAssassin + ClamAV | %40 |
 | Metrics/Logs | ✅ | ⚠️ Temel | %15 |
 | Reseller Sistemi | ✅ | ⚠️ Rol var | %10 |
-| **Kurulum Scripti** | ✅ | ✅ Tam otomatik + Migration | %95 |
+| **Kurulum Scripti** | ✅ | ✅ Tam otomatik + Migration + Mail | %98 |
 
-### 🆕 Son Eklenen Özellikler
+### 🆕 Son Eklenen Özellikler (3 Aralık 2024)
+- ✅ **Tam Mail Sistemi** (Postfix + Dovecot + Roundcube)
+- ✅ **DKIM Otomatik Kurulum** (hesap oluşturulduğunda)
+- ✅ **SPF/DMARC DNS Kayıtları** (otomatik eklenir)
+- ✅ **OpenDKIM Entegrasyonu** (mail imzalama)
+- ✅ **SpamAssassin** (spam filtreleme)
+- ✅ **ClamAV** (virüs tarama)
+- ✅ **webmail.domain.com** subdomain desteği
+- ✅ **SSL Otomatik Vhost** (webmail, mail, ftp, www için)
+- ✅ **Rate Limiting** (saatte 100 mail)
 - ✅ Subdomain SSL sertifikası alma (her FQDN için ayrı)
 - ✅ SSL Status sayfası (cPanel benzeri tablo görünümü)
 - ✅ Domain/Subdomain silme sırasında dosya silme seçeneği
@@ -188,30 +197,39 @@ Bu dosya WHM/cPanel özelliklerini analiz eder ve ServerPanel'e eklenecek özell
 
 ## 📧 5. E-POSTA YÖNETİMİ
 
-### Mevcut ⚠️
-- [x] E-posta hesabı API (temel)
+### Mevcut ✅
+- [x] **Mail Server Kurulumu** (Postfix + Dovecot)
+- [x] **E-posta Hesapları Arayüzü**
+  - [x] Hesap listesi
+  - [x] Hesap oluşturma/silme
+  - [x] Kota yönetimi
+  - [x] Şifre değiştirme
+- [x] **Webmail Entegrasyonu**
+  - [x] Roundcube (webmail.domain.com)
+  - [x] Otomatik SSL vhost
+- [x] **E-posta Yönlendirme (Forwarders)**
+  - [x] Tek adrese yönlendirme
+  - [x] Çoklu yönlendirme
+- [x] **Otomatik Yanıtlayıcı (Autoresponder)**
+  - [x] Tatil mesajı
+  - [x] Zamanlı yanıtlar (başlangıç/bitiş tarihi)
+- [x] **E-posta Filtreleri**
+  - [x] SpamAssassin entegrasyonu
+  - [x] ClamAV virüs tarama
+- [x] **DKIM/SPF/DMARC**
+  - [x] Otomatik DKIM key oluşturma (hesap oluşturulduğunda)
+  - [x] SPF kaydı otomatik ekleme
+  - [x] DMARC kaydı otomatik ekleme
+  - [x] OpenDKIM entegrasyonu
+- [x] **Rate Limiting**
+  - [x] Saatlik mail limiti (varsayılan: 100)
+  - [x] Günlük mail limiti (varsayılan: 500)
+- [x] **TLS/SSL Güvenliği**
+  - [x] SMTP TLS (port 587)
+  - [x] SMTPS (port 465)
+  - [x] IMAPS (port 993)
 
 ### Eksik Özellikler
-- [ ] **E-posta Hesapları Arayüzü**
-  - Hesap listesi
-  - Hesap oluşturma/silme
-  - Kota yönetimi
-  - Şifre değiştirme
-- [ ] **Webmail Entegrasyonu**
-  - Roundcube
-  - Rainloop
-  - SnappyMail
-- [ ] **E-posta Yönlendirme (Forwarders)**
-  - Tek adrese yönlendirme
-  - Çoklu yönlendirme
-  - Pipe to program
-- [ ] **Otomatik Yanıtlayıcı (Autoresponder)**
-  - Tatil mesajı
-  - Zamanlı yanıtlar
-- [ ] **E-posta Filtreleri**
-  - Spam filtreleme
-  - Kural bazlı filtreleme
-  - SpamAssassin entegrasyonu
 - [ ] **Mailing Lists**
   - Liste oluşturma
   - Üye yönetimi
@@ -219,9 +237,6 @@ Bu dosya WHM/cPanel özelliklerini analiz eder ve ServerPanel'e eklenecek özell
 - [ ] **E-posta Routing**
   - Local/Remote mail exchanger
   - Backup MX
-- [ ] **DKIM/SPF/DMARC**
-  - Otomatik yapılandırma
-  - Key yönetimi
 - [ ] **E-posta İstatistikleri**
   - Gönderim/alım sayıları
   - Bounce oranları
@@ -231,6 +246,8 @@ Bu dosya WHM/cPanel özelliklerini analiz eder ve ServerPanel'e eklenecek özell
 - [ ] **Track Delivery**
   - E-posta takibi
   - Log analizi
+- [ ] **Catch-All Email**
+  - Tüm mailleri tek adrese yönlendirme
 
 ---
 

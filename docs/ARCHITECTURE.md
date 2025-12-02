@@ -2,7 +2,7 @@
 
 ## Mevcut Durum vs Hedef
 
-### ✅ Mevcut (ÇALIŞIYOR!)
+### ✅ Mevcut (ÇALIŞIYOR!) - Son Güncelleme: 3 Aralık 2024
 ```
 Admin giriş yapar
 ├── Hesap oluşturur → ✅ Gerçekten oluşur!
@@ -11,7 +11,12 @@ Admin giriş yapar
 │   ├── İzinler: home=711, public_html=755
 │   ├── PHP-FPM pool: /etc/php/8.1/fpm/pool.d/username.conf
 │   ├── Apache vhost: /etc/apache2/sites-available/domain.conf
-│   ├── DNS zone: /etc/bind/zones/db.domain
+│   ├── DNS zone: /etc/bind/zones/db.domain (SPF, DMARC dahil)
+│   ├── DKIM key: /etc/opendkim/keys/domain/default.private
+│   ├── OpenDKIM config: KeyTable, SigningTable, TrustedHosts
+│   ├── Postfix vdomains: domain eklenir
+│   ├── Mail dizini: /var/mail/vhosts/domain
+│   ├── Webmail vhost: webmail.domain.com
 │   └── Welcome page: index.html
 │
 ├── Hesap siler → ✅ Gerçekten siliniyor!
@@ -35,13 +40,28 @@ Admin giriş yapar
 │
 ├── SSL/Let's Encrypt → ✅ Tam fonksiyonel!
 │   ├── Tek tıkla SSL sertifikası alma
-│   ├── Subdomain/WWW/Mail için ayrı SSL alma
+│   ├── Subdomain/WWW/Mail/Webmail/FTP için ayrı SSL alma
 │   ├── cPanel benzeri SSL Status tablosu
 │   ├── SAN/Wildcard sertifika kontrolü
 │   ├── Otomatik yenileme (cron job)
 │   ├── SSL durumu görüntüleme (detaylı)
 │   ├── Sertifika yenileme
-│   └── Sertifika iptal etme
+│   ├── Sertifika iptal etme
+│   └── **Otomatik Apache SSL vhost oluşturma** (webmail, mail, ftp, www)
+│
+├── E-posta Yönetimi → ✅ Tam fonksiyonel!
+│   ├── Postfix MTA (mail gönderme)
+│   ├── Dovecot MDA (IMAP/POP3)
+│   ├── Roundcube Webmail (webmail.domain.com)
+│   ├── OpenDKIM (mail imzalama)
+│   ├── SpamAssassin (spam filtreleme)
+│   ├── ClamAV (virüs tarama)
+│   ├── E-posta hesabı oluşturma/silme
+│   ├── E-posta yönlendirme (forwarders)
+│   ├── Otomatik yanıtlayıcı (autoresponder)
+│   ├── Rate limiting (saatte 100 mail)
+│   ├── TLS/SSL güvenliği (587, 465, 993)
+│   └── Otomatik DKIM/SPF/DMARC kurulumu
 │
 ├── Veritabanı Yönetimi → ✅ Tam fonksiyonel!
 │   ├── MySQL veritabanı oluşturma/silme
