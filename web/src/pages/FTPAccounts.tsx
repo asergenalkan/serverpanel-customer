@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ftpAPI } from '@/lib/api';
+import { ftpAPI, filesAPI } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -20,6 +20,7 @@ import {
   Key,
   Folder,
   HardDrive,
+  FolderOpen,
 } from 'lucide-react';
 
 interface FTPAccount {
@@ -60,12 +61,14 @@ export default function FTPAccountsPage() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showPassword, setShowPassword] = useState<number | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [directories, setDirectories] = useState<string[]>([]);
+  const [loadingDirs, setLoadingDirs] = useState(false);
   
   // Form state
   const [formData, setFormData] = useState({
     username: '',
     password: '',
-    home_directory: '',
+    directory: 'public_html', // Relative path from home
     quota_mb: 0,
   });
 
@@ -111,11 +114,17 @@ export default function FTPAccountsPage() {
     }
 
     try {
-      const response = await ftpAPI.create(formData);
+      // directory alanını backend'e gönder (backend tam path'e çevirecek)
+      const response = await ftpAPI.create({
+        username: formData.username,
+        password: formData.password,
+        home_directory: formData.directory, // Relative path gönder
+        quota_mb: formData.quota_mb,
+      });
       if (response.data.success) {
         setMessage({ type: 'success', text: 'FTP hesabı oluşturuldu' });
         setShowCreateModal(false);
-        setFormData({ username: '', password: '', home_directory: '', quota_mb: 0 });
+        setFormData({ username: '', password: '', directory: 'public_html', quota_mb: 0 });
         fetchData();
       } else {
         setMessage({ type: 'error', text: response.data.error || 'Oluşturma başarısız' });
@@ -123,6 +132,29 @@ export default function FTPAccountsPage() {
     } catch (error: any) {
       setMessage({ type: 'error', text: error.response?.data?.error || 'Oluşturma başarısız' });
     }
+  };
+
+  const fetchDirectories = async () => {
+    setLoadingDirs(true);
+    try {
+      const response = await filesAPI.list('/');
+      if (response.data.success && response.data.data) {
+        const dirs = response.data.data
+          .filter((item: any) => item.is_dir)
+          .map((item: any) => item.name);
+        setDirectories(dirs);
+      }
+    } catch (error) {
+      console.error('Failed to fetch directories:', error);
+    } finally {
+      setLoadingDirs(false);
+    }
+  };
+
+  const openCreateModal = () => {
+    setFormData({ username: '', password: '', directory: 'public_html', quota_mb: 0 });
+    fetchDirectories();
+    setShowCreateModal(true);
   };
 
   const handleDelete = async (id: number) => {
@@ -222,7 +254,7 @@ export default function FTPAccountsPage() {
               <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Yenile
             </Button>
-            <Button onClick={() => setShowCreateModal(true)}>
+            <Button onClick={openCreateModal}>
               <Plus className="w-4 h-4 mr-2" />
               Yeni FTP Hesabı
             </Button>
@@ -283,7 +315,7 @@ export default function FTPAccountsPage() {
               <div className="text-center py-8 text-muted-foreground">
                 <Upload className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p>Henüz FTP hesabı yok</p>
-                <Button className="mt-4" onClick={() => setShowCreateModal(true)}>
+                <Button className="mt-4" onClick={openCreateModal}>
                   <Plus className="w-4 h-4 mr-2" />
                   İlk FTP Hesabını Oluştur
                 </Button>
@@ -440,16 +472,23 @@ export default function FTPAccountsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Dizin (Opsiyonel)</label>
-                  <input
-                    type="text"
-                    value={formData.home_directory}
-                    onChange={(e) => setFormData({ ...formData, home_directory: e.target.value })}
+                  <label className="block text-sm font-medium mb-1">
+                    <FolderOpen className="w-4 h-4 inline mr-1" />
+                    Erişim Dizini
+                  </label>
+                  <select
+                    value={formData.directory}
+                    onChange={(e) => setFormData({ ...formData, directory: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg bg-background"
-                    placeholder="/home/username/public_html"
-                  />
+                    disabled={loadingDirs}
+                  >
+                    <option value="public_html">public_html (Web Kök Dizini)</option>
+                    {directories.filter(d => d !== 'public_html').map((dir) => (
+                      <option key={dir} value={dir}>{dir}</option>
+                    ))}
+                  </select>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Boş bırakılırsa public_html kullanılır
+                    FTP kullanıcısı sadece bu dizine erişebilir
                   </p>
                 </div>
 

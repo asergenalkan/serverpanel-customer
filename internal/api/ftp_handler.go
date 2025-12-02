@@ -148,19 +148,47 @@ func (h *Handler) CreateFTPAccount(c *fiber.Ctx) error {
 		})
 	}
 
-	// Set home directory
-	homeDir := req.HomeDirectory
-	if homeDir == "" {
-		homeDir = filepath.Join("/home", systemUsername, "public_html")
+	// User's home base directory
+	userHome := filepath.Join("/home", systemUsername)
+
+	// Set home directory - convert relative path to absolute
+	var homeDir string
+	if req.HomeDirectory == "" || req.HomeDirectory == "public_html" {
+		homeDir = filepath.Join(userHome, "public_html")
+	} else if strings.HasPrefix(req.HomeDirectory, "/") {
+		// Absolute path provided - validate it's within user's home (admin only)
+		if role != models.RoleAdmin {
+			// For non-admin, force it to be within their home
+			cleanPath := filepath.Clean(req.HomeDirectory)
+			if !strings.HasPrefix(cleanPath, userHome) {
+				return c.Status(fiber.StatusForbidden).JSON(models.APIResponse{
+					Success: false,
+					Error:   "Erişim dizini kendi klasörünüz içinde olmalıdır",
+				})
+			}
+			homeDir = cleanPath
+		} else {
+			homeDir = filepath.Clean(req.HomeDirectory)
+		}
+	} else {
+		// Relative path - append to user's home
+		// Sanitize: remove any ../ attempts
+		cleanRelPath := filepath.Clean(req.HomeDirectory)
+		if strings.Contains(cleanRelPath, "..") {
+			return c.Status(fiber.StatusBadRequest).JSON(models.APIResponse{
+				Success: false,
+				Error:   "Geçersiz dizin yolu",
+			})
+		}
+		homeDir = filepath.Join(userHome, cleanRelPath)
 	}
 
-	// Validate home directory (must be within user's home)
+	// Final security check - ensure path is within user's home
 	if role != models.RoleAdmin {
-		userHome := filepath.Join("/home", systemUsername)
 		if !strings.HasPrefix(homeDir, userHome) {
 			return c.Status(fiber.StatusForbidden).JSON(models.APIResponse{
 				Success: false,
-				Error:   "Home directory must be within your home folder",
+				Error:   "Erişim dizini kendi klasörünüz içinde olmalıdır",
 			})
 		}
 	}
