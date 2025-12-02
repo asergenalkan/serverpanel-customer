@@ -491,20 +491,20 @@ export default function FTPAccountsPage() {
                 {/* Kullanıcı Adı */}
                 <div>
                   <label className="block text-sm font-medium mb-2">Oturum Açma</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={formData.username}
-                      onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                      className="flex-1 px-3 py-2 border rounded-lg bg-background"
-                      placeholder="ftpkullanici"
-                    />
-                    <span className="text-sm text-muted-foreground bg-muted px-3 py-2 rounded-lg">
-                      _{user?.username}
-                    </span>
-                  </div>
+                  <input
+                    type="text"
+                    value={formData.username}
+                    onChange={(e) => {
+                      // Sadece İngilizce harf, rakam ve alt çizgi kabul et
+                      const value = e.target.value.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase();
+                      setFormData({ ...formData, username: value });
+                    }}
+                    className="w-full px-3 py-2 border rounded-lg bg-background"
+                    placeholder="ftpkullanici"
+                    maxLength={32}
+                  />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Tam kullanıcı adı: <span className="font-mono">{user?.username}_{formData.username || 'ftpkullanici'}</span>
+                    Tam kullanıcı adı: <span className="font-mono font-semibold">{user?.username}_{formData.username || 'ftpkullanici'}</span>
                   </p>
                 </div>
 
