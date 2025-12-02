@@ -156,8 +156,37 @@ func (db *DB) migrate() error {
 			user_id INTEGER NOT NULL,
 			domain_id INTEGER NOT NULL,
 			email TEXT UNIQUE NOT NULL,
-			password TEXT NOT NULL,
-			quota INTEGER DEFAULT 100,
+			password_hash TEXT NOT NULL,
+			quota_mb INTEGER DEFAULT 1024,
+			active INTEGER DEFAULT 1,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+			FOREIGN KEY (domain_id) REFERENCES domains(id) ON DELETE CASCADE
+		)`,
+
+		// Email forwarders table
+		`CREATE TABLE IF NOT EXISTS email_forwarders (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			domain_id INTEGER NOT NULL,
+			source TEXT NOT NULL,
+			destination TEXT NOT NULL,
+			active INTEGER DEFAULT 1,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+			FOREIGN KEY (domain_id) REFERENCES domains(id) ON DELETE CASCADE
+		)`,
+
+		// Email autoresponders table
+		`CREATE TABLE IF NOT EXISTS email_autoresponders (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			domain_id INTEGER NOT NULL,
+			email TEXT NOT NULL,
+			subject TEXT NOT NULL,
+			body TEXT NOT NULL,
+			start_date TEXT,
+			end_date TEXT,
 			active INTEGER DEFAULT 1,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,

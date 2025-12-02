@@ -606,6 +606,212 @@ configure_pureftpd() {
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# MAIL SERVER YAPILANDIRMASI (Postfix + Dovecot + Roundcube)
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Mail Server Mimarisi:
+# - MTA (Mail Transfer Agent): Postfix - SMTP gönderim/alım
+# - MDA (Mail Delivery Agent): Dovecot - IMAP/POP3 erişim  
+# - Webmail: Roundcube - Tarayıcı üzerinden e-posta (GPL-3.0 Ücretsiz)
+#
+# Standart Portlar:
+# ┌─────────────┬──────────┬────────────┬─────────────────────────────────┐
+# │ Protokol    │ Port     │ Güvenlik   │ Açıklama                        │
+# ├─────────────┼──────────┼────────────┼─────────────────────────────────┤
+# │ SMTP        │ 25       │ STARTTLS   │ Sunucular arası mail transferi  │
+# │ SMTP        │ 587      │ STARTTLS   │ Mail gönderimi (submission)     │
+# │ SMTPS       │ 465      │ SSL/TLS    │ Güvenli mail gönderimi          │
+# │ IMAP        │ 143      │ STARTTLS   │ Mail okuma                      │
+# │ IMAPS       │ 993      │ SSL/TLS    │ Güvenli mail okuma              │
+# │ POP3        │ 110      │ STARTTLS   │ Mail indirme                    │
+# │ POP3S       │ 995      │ SSL/TLS    │ Güvenli mail indirme            │
+# └─────────────┴──────────┴────────────┴─────────────────────────────────┘
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+
+configure_mail_server() {
+    log_step "Mail Server Yapılandırılıyor (Postfix + Dovecot)"
+    
+    # 1. Paketleri kur
+    log_progress "Mail server paketleri kuruluyor"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        postfix postfix-mysql \
+        dovecot-core dovecot-imapd dovecot-pop3d dovecot-lmtpd dovecot-sieve \
+        > /dev/null 2>&1
+    
+    if ! command -v postfix &> /dev/null; then
+        log_warn "Postfix kurulamadı, mail server atlanıyor"
+        return
+    fi
+    log_done "Mail server paketleri kuruldu"
+    
+    # 2. vmail kullanıcısı oluştur
+    log_progress "vmail kullanıcısı oluşturuluyor"
+    if ! id "vmail" &>/dev/null; then
+        groupadd -g 5000 vmail
+        useradd -g vmail -u 5000 vmail -d /var/mail/vhosts -m
+    fi
+    ensure_directory "/var/mail/vhosts" "vmail" "770"
+    log_done "vmail kullanıcısı hazır"
+    
+    # 3. Postfix temel yapılandırma
+    log_progress "Postfix yapılandırılıyor"
+    local hostname=$(hostname -f)
+    
+    postconf -e "myhostname = $hostname"
+    postconf -e "mydomain = $(hostname -d)"
+    postconf -e "myorigin = \$mydomain"
+    postconf -e "inet_interfaces = all"
+    postconf -e "inet_protocols = ipv4"
+    postconf -e "mydestination = localhost"
+    postconf -e "virtual_transport = lmtp:unix:private/dovecot-lmtp"
+    postconf -e "virtual_mailbox_domains = /etc/postfix/vdomains"
+    postconf -e "virtual_mailbox_maps = hash:/etc/postfix/vmailbox"
+    postconf -e "virtual_alias_maps = hash:/etc/postfix/virtual"
+    postconf -e "smtpd_sasl_type = dovecot"
+    postconf -e "smtpd_sasl_path = private/auth"
+    postconf -e "smtpd_sasl_auth_enable = yes"
+    postconf -e "smtpd_recipient_restrictions = permit_sasl_authenticated, permit_mynetworks, reject_unauth_destination"
+    
+    # Submission port (587)
+    if ! grep -q "^submission" /etc/postfix/master.cf; then
+        cat >> /etc/postfix/master.cf << 'SUBMISSION'
+submission inet n       -       y       -       -       smtpd
+  -o syslog_name=postfix/submission
+  -o smtpd_tls_security_level=encrypt
+  -o smtpd_sasl_auth_enable=yes
+  -o smtpd_reject_unlisted_recipient=no
+SUBMISSION
+    fi
+    
+    # Boş dosyalar oluştur
+    touch /etc/postfix/vdomains
+    touch /etc/postfix/vmailbox
+    touch /etc/postfix/virtual
+    postmap /etc/postfix/vmailbox > /dev/null 2>&1 || true
+    postmap /etc/postfix/virtual > /dev/null 2>&1 || true
+    
+    log_done "Postfix yapılandırıldı"
+    
+    # 4. Dovecot yapılandırma
+    log_progress "Dovecot yapılandırılıyor"
+    
+    # Dovecot users dosyası
+    touch /etc/dovecot/users
+    chmod 600 /etc/dovecot/users
+    
+    # Dovecot auth config
+    cat > /etc/dovecot/conf.d/10-auth.conf << 'DOVECOTAUTH'
+disable_plaintext_auth = no
+auth_mechanisms = plain login
+
+passdb {
+  driver = passwd-file
+  args = scheme=BLF-CRYPT username_format=%u /etc/dovecot/users
+}
+
+userdb {
+  driver = static
+  args = uid=vmail gid=vmail home=/var/mail/vhosts/%d/%n
+}
+DOVECOTAUTH
+
+    # Dovecot mail config
+    cat > /etc/dovecot/conf.d/10-mail.conf << 'DOVECOTMAIL'
+mail_location = maildir:/var/mail/vhosts/%d/%n
+mail_privileged_group = vmail
+namespace inbox {
+  inbox = yes
+}
+DOVECOTMAIL
+
+    # Dovecot master config (LMTP + Auth)
+    cat > /etc/dovecot/conf.d/10-master.conf << 'DOVECOTMASTER'
+service lmtp {
+  unix_listener /var/spool/postfix/private/dovecot-lmtp {
+    mode = 0600
+    user = postfix
+    group = postfix
+  }
+}
+
+service auth {
+  unix_listener /var/spool/postfix/private/auth {
+    mode = 0660
+    user = postfix
+    group = postfix
+  }
+}
+DOVECOTMASTER
+
+    log_done "Dovecot yapılandırıldı"
+    
+    # 5. Servisleri başlat
+    log_progress "Mail servisleri başlatılıyor"
+    systemctl enable postfix dovecot > /dev/null 2>&1
+    systemctl restart postfix dovecot > /dev/null 2>&1
+    
+    sleep 2
+    if systemctl is-active --quiet postfix && systemctl is-active --quiet dovecot; then
+        log_done "Mail servisleri başlatıldı"
+        log_info "SMTP: 25, 587 (submission)"
+        log_info "IMAP: 143, 993 (SSL)"
+        log_info "POP3: 110, 995 (SSL)"
+    else
+        log_warn "Mail servisleri başlatılamadı"
+    fi
+}
+
+configure_roundcube() {
+    log_step "Roundcube Webmail Yapılandırılıyor"
+    
+    # 1. Roundcube kur
+    log_progress "Roundcube kuruluyor"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y roundcube roundcube-mysql > /dev/null 2>&1
+    
+    if [[ ! -d /usr/share/roundcube ]]; then
+        log_warn "Roundcube kurulamadı, atlanıyor"
+        return
+    fi
+    log_done "Roundcube kuruldu"
+    
+    # 2. Apache alias oluştur
+    log_progress "Roundcube Apache yapılandırması"
+    cat > /etc/apache2/conf-available/roundcube.conf << 'RCAPACHE'
+Alias /webmail /usr/share/roundcube
+
+<Directory /usr/share/roundcube>
+    Options +FollowSymLinks
+    AllowOverride All
+    Require all granted
+    
+    <IfModule mod_php.c>
+        php_flag display_errors Off
+        php_flag log_errors On
+    </IfModule>
+</Directory>
+
+<Directory /usr/share/roundcube/config>
+    Require all denied
+</Directory>
+
+<Directory /usr/share/roundcube/temp>
+    Require all denied
+</Directory>
+
+<Directory /usr/share/roundcube/logs>
+    Require all denied
+</Directory>
+RCAPACHE
+
+    a2enconf roundcube > /dev/null 2>&1
+    systemctl reload apache2 > /dev/null 2>&1
+    
+    log_done "Roundcube yapılandırıldı"
+    log_info "Webmail URL: http://SERVER_IP/webmail"
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # APACHE YAPILANDIRMASI
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1063,6 +1269,57 @@ migrate_database() {
         log_info "subdomains tablosu mevcut"
     fi
     
+    # email_forwarders tablosu var mı kontrol et
+    if ! sqlite3 "$DB_PATH" ".tables" | grep -q "email_forwarders"; then
+        log_progress "email_forwarders tablosu oluşturuluyor"
+        sqlite3 "$DB_PATH" "CREATE TABLE IF NOT EXISTS email_forwarders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            domain_id INTEGER NOT NULL,
+            source TEXT NOT NULL,
+            destination TEXT NOT NULL,
+            active INTEGER DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (domain_id) REFERENCES domains(id) ON DELETE CASCADE
+        );"
+        log_done "email_forwarders tablosu oluşturuldu"
+    else
+        log_info "email_forwarders tablosu mevcut"
+    fi
+    
+    # email_autoresponders tablosu var mı kontrol et
+    if ! sqlite3 "$DB_PATH" ".tables" | grep -q "email_autoresponders"; then
+        log_progress "email_autoresponders tablosu oluşturuluyor"
+        sqlite3 "$DB_PATH" "CREATE TABLE IF NOT EXISTS email_autoresponders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            domain_id INTEGER NOT NULL,
+            email TEXT NOT NULL,
+            subject TEXT NOT NULL,
+            body TEXT NOT NULL,
+            start_date TEXT,
+            end_date TEXT,
+            active INTEGER DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (domain_id) REFERENCES domains(id) ON DELETE CASCADE
+        );"
+        log_done "email_autoresponders tablosu oluşturuldu"
+    else
+        log_info "email_autoresponders tablosu mevcut"
+    fi
+    
+    # email_accounts tablosunda password_hash sütunu var mı kontrol et
+    if sqlite3 "$DB_PATH" "PRAGMA table_info(email_accounts);" | grep -q "password" && \
+       ! sqlite3 "$DB_PATH" "PRAGMA table_info(email_accounts);" | grep -q "password_hash"; then
+        log_progress "email_accounts tablosu güncelleniyor"
+        # SQLite'da sütun adı değiştirmek için tablo yeniden oluşturulmalı
+        sqlite3 "$DB_PATH" "ALTER TABLE email_accounts RENAME COLUMN password TO password_hash;" 2>/dev/null || true
+        sqlite3 "$DB_PATH" "ALTER TABLE email_accounts RENAME COLUMN quota TO quota_mb;" 2>/dev/null || true
+        log_done "email_accounts tablosu güncellendi"
+    fi
+    
     log_info "Veritabanı migrasyonu tamamlandı ✓"
 }
 
@@ -1188,6 +1445,14 @@ print_summary() {
     echo -e "${CYAN}phpMyAdmin:${NC}"
     echo -e "  URL:        ${GREEN}http://${SERVER_IP}/phpmyadmin${NC}"
     echo ""
+    echo -e "${CYAN}Webmail (Roundcube):${NC}"
+    echo -e "  URL:        ${GREEN}http://${SERVER_IP}/webmail${NC}"
+    echo ""
+    echo -e "${CYAN}Mail Server Portları:${NC}"
+    echo -e "  SMTP:       25, 587 (submission)"
+    echo -e "  IMAP:       143, 993 (SSL)"
+    echo -e "  POP3:       110, 995 (SSL)"
+    echo ""
     echo -e "${YELLOW}⚠️  İlk girişte şifrenizi değiştirin!${NC}"
     echo ""
 }
@@ -1203,6 +1468,8 @@ main() {
     configure_mysql
     configure_php
     configure_pureftpd
+    configure_mail_server
+    configure_roundcube
     configure_apache
     configure_dns
     install_phpmyadmin

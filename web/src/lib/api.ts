@@ -152,6 +152,31 @@ export const sslAPI = {
   revoke: (domainId: number) => api.delete(`/ssl/${domainId}`),
 };
 
+// Email Management
+export const emailAPI = {
+  // Accounts
+  listAccounts: () => api.get('/email/accounts'),
+  createAccount: (data: { domain_id: number; username: string; password: string; quota_mb?: number }) =>
+    api.post('/email/accounts', data),
+  updateAccount: (id: number, data: { password?: string; quota_mb?: number }) =>
+    api.put(`/email/accounts/${id}`, data),
+  deleteAccount: (id: number) => api.delete(`/email/accounts/${id}`),
+  toggleAccount: (id: number) => api.post(`/email/accounts/${id}/toggle`),
+  // Forwarders
+  listForwarders: () => api.get('/email/forwarders'),
+  createForwarder: (data: { domain_id: number; source: string; destination: string }) =>
+    api.post('/email/forwarders', data),
+  deleteForwarder: (id: number) => api.delete(`/email/forwarders/${id}`),
+  // Autoresponders
+  listAutoresponders: () => api.get('/email/autoresponders'),
+  createAutoresponder: (data: { email_account_id: number; subject: string; body: string; start_date?: string; end_date?: string }) =>
+    api.post('/email/autoresponders', data),
+  deleteAutoresponder: (id: number) => api.delete(`/email/autoresponders/${id}`),
+  // Utils
+  getWebmailURL: () => api.get('/email/webmail'),
+  getStats: () => api.get('/email/stats'),
+};
+
 // PHP Management
 export const phpAPI = {
   getVersions: () => api.get('/php/versions'),

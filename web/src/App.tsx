@@ -13,6 +13,7 @@ import FTPAccounts from '@/pages/FTPAccounts';
 import DNSZoneEditor from '@/pages/DNSZoneEditor';
 import Packages from '@/pages/Packages';
 import DomainManager from '@/pages/DomainManager';
+import Email from '@/pages/Email';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -168,6 +169,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <DomainManager />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/email"
+        element={
+          <ProtectedRoute>
+            <Email />
           </ProtectedRoute>
         }
       />
