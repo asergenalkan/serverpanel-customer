@@ -56,6 +56,14 @@ Admin giriş yapar
 │   │   └── display_errors
 │   ├── Paket bazlı PHP limitleri
 │   └── PHP-FPM pool otomatik güncelleme
+│
+├── FTP Yönetimi (Pure-FTPd) → ✅ Tam fonksiyonel!
+│   ├── FTP hesabı oluşturma/silme
+│   ├── Hesap aktif/pasif yapma
+│   ├── Dizin kısıtlaması (chroot)
+│   ├── Kota yönetimi (sınırsız seçeneği)
+│   ├── Şifre gücü göstergesi
+│   └── Admin sunucu ayarları (TLS, bağlantı limitleri)
 ```
 
 ### 📋 Hedef (Devam Eden)
@@ -276,7 +284,14 @@ func sanitizePath(path string) string {
 ### 🔄 Faz 2 - Temel Hosting (Devam Ediyor)
 1. [x] MySQL veritabanı yönetimi ✅
 2. [x] SSL/Let's Encrypt ✅
-3. [ ] FTP hesapları
+3. [x] FTP hesapları (Pure-FTPd) ✅
 4. [ ] Backup
 5. [ ] E-posta yönetimi
 6. [ ] Cron Jobs
+
+### ✅ UI/UX İyileştirmeleri (TAMAMLANDI!)
+1. [x] Merkezi tema renk sistemi (CSS variables)
+2. [x] Light/Dark mode tutarlılığı
+3. [x] Tüm sayfalarda tutarlı başlık boyutları
+4. [x] Badge ve alert renkleri düzeltildi
+5. [x] phpMyAdmin blowfish_secret otomatik yapılandırma

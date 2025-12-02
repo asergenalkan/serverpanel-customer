@@ -16,7 +16,7 @@ Bu dosya WHM/cPanel özelliklerini analiz eder ve ServerPanel'e eklenecek özell
 | E-posta Yönetimi | ✅ | ⚠️ API var | %10 |
 | Veritabanı Yönetimi | ✅ | ✅ phpMyAdmin SSO | %80 |
 | Dosya Yönetimi | ✅ | ✅ Tam fonksiyonel | %90 |
-| FTP Yönetimi | ✅ | ❌ | %0 |
+| FTP Yönetimi | ✅ | ✅ Pure-FTPd | %90 |
 | SSL/TLS | ✅ | ✅ Let's Encrypt | %90 |
 | PHP Yönetimi | ✅ | ✅ MultiPHP | %80 |
 | Backup | ✅ | ❌ | %0 |
@@ -296,15 +296,26 @@ Web tabanlı dosya yöneticisi tam fonksiyonel çalışıyor.
 
 ## 📤 8. FTP YÖNETİMİ
 
-### Mevcut ❌
-Henüz yok
+### Mevcut ✅
+- [x] **FTP Hesapları** (Pure-FTPd)
+  - Hesap oluşturma/silme
+  - Şifre yönetimi (güçlü şifre generator)
+  - Directory kısıtlaması (chroot)
+  - Kota belirleme (sınırsız seçeneği)
+  - Hesap aktif/pasif yapma
+  - Kullanıcı adı kopyalama
+- [x] **FTP Sunucu Yönetimi** (Admin)
+  - Sunucu durumu görüntüleme
+  - TLS şifreleme ayarları
+  - Bağlantı limitleri
+  - Pasif port aralığı
+- [x] **UI/UX**
+  - cPanel benzeri form tasarımı
+  - Autocomplete dizin seçimi
+  - Şifre gücü göstergesi
+  - Loading animasyonları
 
-### Eklenecek Özellikler
-- [ ] **FTP Hesapları**
-  - Hesap oluşturma
-  - Şifre yönetimi
-  - Directory kısıtlaması
-  - Kota belirleme
+### Eksik Özellikler
 - [ ] **FTP İstatistikleri**
   - Bağlantı logları
   - Transfer istatistikleri
@@ -613,7 +624,7 @@ Bir hosting müşterisinin temel ihtiyaçlarına göre sıralandı:
 |---|---------|----------------|-------|
 | 6 | E-posta Hesapları UI | info@domain.com | ⏳ Bekliyor |
 | 7 | Webmail (Roundcube) | Tarayıcıdan mail okuma | ⏳ Bekliyor |
-| 8 | FTP Hesapları | Büyük dosya yükleme | ⏳ Bekliyor |
+| 8 | FTP Hesapları | Büyük dosya yükleme | ✅ Tamam |
 | 9 | Backup & Restore | Veri kaybını önleme | ⏳ Bekliyor |
 | 10 | DNS Zone Editor | Mail/subdomain ayarları | ⏳ Bekliyor |
 
@@ -643,10 +654,10 @@ Bir hosting müşterisinin temel ihtiyaçlarına göre sıralandı:
 
 ## 📈 İlerleme Durumu
 
-- **Tamamlanan**: 25+ özellik
-- **Devam Eden**: 3 özellik
-- **Bekleyen**: 130+ özellik
-- **Toplam İlerleme**: ~%25
+- **Tamamlanan**: 30+ özellik
+- **Devam Eden**: 2 özellik
+- **Bekleyen**: 125+ özellik
+- **Toplam İlerleme**: ~%30
 
 ### ✅ Son Tamamlanan Özellikler (2 Aralık 2025)
 - Tek komutla kurulum scripti (install.sh)
@@ -675,6 +686,18 @@ Bir hosting müşterisinin temel ihtiyaçlarına göre sıralandı:
   - PHP INI ayarları düzenleme
   - Paket bazlı PHP limitleri
   - memory_limit, upload_max_filesize, max_execution_time
+- **FTP Yönetimi (Pure-FTPd)**
+  - FTP hesabı oluşturma/silme/aktif-pasif
+  - Dizin kısıtlaması (chroot)
+  - Kota yönetimi (sınırsız seçeneği)
+  - Şifre gücü göstergesi
+  - Admin sunucu ayarları
+- **UI/UX İyileştirmeleri**
+  - Merkezi tema renk sistemi (CSS variables)
+  - Light/Dark mode tutarlılığı
+  - Tüm sayfalarda tutarlı başlık boyutları
+  - Badge ve alert renkleri düzeltildi
+  - phpMyAdmin blowfish_secret otomatik yapılandırma
 
 ---
 
