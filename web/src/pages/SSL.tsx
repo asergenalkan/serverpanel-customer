@@ -343,27 +343,27 @@ export default function SSL() {
                     </div>
                     
                     {cert.status !== 'none' && (
-                      <div className="p-4 bg-gray-50 dark:bg-gray-800/50 grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="p-4 bg-muted/50 grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-gray-400" />
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
                           <div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Başlangıç</p>
-                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            <p className="text-xs text-muted-foreground">Başlangıç</p>
+                            <p className="text-sm font-medium text-foreground">
                               {formatDate(cert.valid_from)}
                             </p>
                           </div>
                         </div>
                         
                         <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-gray-400" />
+                          <Clock className="h-4 w-4 text-muted-foreground" />
                           <div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Bitiş</p>
+                            <p className="text-xs text-muted-foreground">Bitiş</p>
                             <p className={`text-sm font-medium ${
                               cert.status === 'expired' 
                                 ? 'text-red-600 dark:text-red-400' 
                                 : isExpiringSoon 
                                   ? 'text-yellow-600 dark:text-yellow-400'
-                                  : 'text-gray-900 dark:text-white'
+                                  : 'text-foreground'
                             }`}>
                               {formatDate(cert.valid_until)}
                               {daysRemaining !== null && daysRemaining > 0 && (
@@ -376,10 +376,10 @@ export default function SSL() {
                         </div>
                         
                         <div className="flex items-center gap-2">
-                          <ShieldCheck className="h-4 w-4 text-gray-400" />
+                          <ShieldCheck className="h-4 w-4 text-muted-foreground" />
                           <div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Otomatik Yenileme</p>
-                            <p className="text-sm font-medium text-green-600 dark:text-green-400">
+                            <p className="text-xs text-muted-foreground">Otomatik Yenileme</p>
+                            <p className="text-sm font-medium text-primary">
                               {cert.auto_renew ? 'Aktif' : 'Pasif'}
                             </p>
                           </div>
