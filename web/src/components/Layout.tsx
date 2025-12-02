@@ -52,7 +52,7 @@ const adminMenuItems = [
   { icon: Shield, label: 'SSL/TLS', href: '/ssl' },
   { icon: Code, label: 'PHP Ayarları', href: '/php' },
   { icon: Globe2, label: 'DNS Zone Editor', href: '/dns' },
-  { icon: Package, label: 'Paketler', href: '/packages', disabled: true },
+  { icon: Package, label: 'Paketler', href: '/packages' },
   { icon: Settings, label: 'Ayarlar', href: '/settings', disabled: true },
 ];
 

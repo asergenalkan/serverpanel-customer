@@ -56,8 +56,31 @@ export const usersAPI = {
 // Packages
 export const packagesAPI = {
   list: () => api.get('/packages'),
-  create: (data: any) => api.post('/packages', data),
-  update: (id: number, data: any) => api.put(`/packages/${id}`, data),
+  get: (id: number) => api.get(`/packages/${id}`),
+  create: (data: {
+    name: string;
+    disk_quota?: number;
+    bandwidth_quota?: number;
+    max_domains?: number;
+    max_databases?: number;
+    max_emails?: number;
+    max_ftp?: number;
+    max_php_memory?: string;
+    max_php_upload?: string;
+    max_php_execution_time?: number;
+  }) => api.post('/packages', data),
+  update: (id: number, data: {
+    name?: string;
+    disk_quota?: number;
+    bandwidth_quota?: number;
+    max_domains?: number;
+    max_databases?: number;
+    max_emails?: number;
+    max_ftp?: number;
+    max_php_memory?: string;
+    max_php_upload?: string;
+    max_php_execution_time?: number;
+  }) => api.put(`/packages/${id}`, data),
   delete: (id: number) => api.delete(`/packages/${id}`),
 };
 

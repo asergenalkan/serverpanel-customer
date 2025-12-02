@@ -20,6 +20,7 @@ import {
   Shield,
   RotateCcw,
   X,
+  Search,
 } from 'lucide-react';
 
 interface DNSRecord {
@@ -129,6 +130,7 @@ export default function DNSZoneEditorPage() {
 
   // Filter state
   const [filterType, setFilterType] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
     fetchZones();
@@ -269,9 +271,14 @@ export default function DNSZoneEditorPage() {
     });
   };
 
-  const filteredRecords = selectedZone?.records?.filter(
-    (r) => filterType === 'all' || r.type === filterType
-  ) || [];
+  const filteredRecords = selectedZone?.records?.filter((r) => {
+    const matchesType = filterType === 'all' || r.type === filterType;
+    const matchesSearch = searchQuery === '' || 
+      r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.type.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesType && matchesSearch;
+  }) || [];
 
 
   return (
@@ -380,9 +387,23 @@ export default function DNSZoneEditorPage() {
                   </CardContent>
                 </Card>
 
-                {/* Filter */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm text-muted-foreground">Filtrele:</span>
+                {/* Search & Filter */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  {/* Search */}
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      placeholder="Kayıt ara..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                  </div>
+                  
+                  {/* Filter */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm text-muted-foreground">Filtrele:</span>
                   <button
                     onClick={() => setFilterType('all')}
                     className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
@@ -393,19 +414,20 @@ export default function DNSZoneEditorPage() {
                   >
                     Tümü
                   </button>
-                  {RECORD_TYPES.map((type) => (
-                    <button
-                      key={type}
-                      onClick={() => setFilterType(type)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                        filterType === type
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                      }`}
-                    >
-                      {type}
-                    </button>
-                  ))}
+                    {RECORD_TYPES.map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => setFilterType(type)}
+                        className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                          filterType === type
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Records Table */}

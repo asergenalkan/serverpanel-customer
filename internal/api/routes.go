@@ -44,6 +44,7 @@ func SetupRoutes(router fiber.Router, db *database.DB) {
 
 	// Packages (admin only)
 	protected.Get("/packages", admin, h.ListPackages)
+	protected.Get("/packages/:id", admin, h.GetPackage)
 	protected.Post("/packages", admin, h.CreatePackage)
 	protected.Put("/packages/:id", admin, h.UpdatePackage)
 	protected.Delete("/packages/:id", admin, h.DeletePackage)
