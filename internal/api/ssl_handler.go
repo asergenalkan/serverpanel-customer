@@ -467,9 +467,19 @@ func (h *Handler) IssueSSLForFQDN(c *fiber.Ctx) error {
 		})
 	}
 
-	// Configure SSL vhost for subdomain
-	if req.DomainType == "subdomain" {
+	// Configure SSL vhost based on domain type
+	switch req.DomainType {
+	case "subdomain":
 		h.configureSSLVhostForFQDN(req.FQDN, username, webRoot, certInfo)
+	case "webmail":
+		h.configureSSLVhostForWebmail(req.FQDN, certInfo)
+	case "mail":
+		h.configureSSLVhostForMail(req.FQDN, certInfo)
+	case "ftp":
+		h.configureSSLVhostForFTP(req.FQDN, certInfo)
+	case "www":
+		// www uses the same vhost as main domain, just update SSL
+		h.configureSSLVhostForWWW(req.FQDN, username, certInfo)
 	}
 
 	return c.JSON(models.APIResponse{
@@ -835,6 +845,171 @@ func (h *Handler) configureSSLVhostForFQDN(fqdn, username, docRoot string, cert 
 	exec.Command("a2ensite", fqdn+"-ssl").Run()
 
 	// Reload Apache
+	exec.Command("systemctl", "reload", "apache2").Run()
+
+	return nil
+}
+
+// configureSSLVhostForWebmail configures SSL vhost for webmail subdomain
+func (h *Handler) configureSSLVhostForWebmail(fqdn string, cert *certInfo) error {
+	vhostPath := filepath.Join("/etc/apache2/sites-available", fqdn+"-ssl.conf")
+
+	vhostContent := fmt.Sprintf(`<VirtualHost *:443>
+    ServerName %s
+    
+    DocumentRoot /usr/share/roundcube
+    
+    SSLEngine on
+    SSLCertificateFile %s
+    SSLCertificateKeyFile %s
+    
+    <Directory /usr/share/roundcube>
+        Options +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+    
+    <Directory /usr/share/roundcube/config>
+        Require all denied
+    </Directory>
+    
+    ErrorLog ${APACHE_LOG_DIR}/%s-ssl-error.log
+    CustomLog ${APACHE_LOG_DIR}/%s-ssl-access.log combined
+</VirtualHost>
+`, fqdn, cert.CertPath, cert.KeyPath, fqdn, fqdn)
+
+	if err := os.WriteFile(vhostPath, []byte(vhostContent), 0644); err != nil {
+		return err
+	}
+
+	exec.Command("a2ensite", fqdn+"-ssl").Run()
+	exec.Command("systemctl", "reload", "apache2").Run()
+
+	return nil
+}
+
+// configureSSLVhostForMail configures SSL vhost for mail subdomain (redirects to webmail)
+func (h *Handler) configureSSLVhostForMail(fqdn string, cert *certInfo) error {
+	vhostPath := filepath.Join("/etc/apache2/sites-available", fqdn+"-ssl.conf")
+
+	// Extract domain from fqdn (mail.example.com -> example.com)
+	parts := strings.SplitN(fqdn, ".", 2)
+	domain := fqdn
+	if len(parts) > 1 {
+		domain = parts[1]
+	}
+
+	vhostContent := fmt.Sprintf(`<VirtualHost *:443>
+    ServerName %s
+    
+    SSLEngine on
+    SSLCertificateFile %s
+    SSLCertificateKeyFile %s
+    
+    # Redirect to webmail
+    RedirectPermanent / https://webmail.%s/
+    
+    ErrorLog ${APACHE_LOG_DIR}/%s-ssl-error.log
+    CustomLog ${APACHE_LOG_DIR}/%s-ssl-access.log combined
+</VirtualHost>
+`, fqdn, cert.CertPath, cert.KeyPath, domain, fqdn, fqdn)
+
+	if err := os.WriteFile(vhostPath, []byte(vhostContent), 0644); err != nil {
+		return err
+	}
+
+	exec.Command("a2ensite", fqdn+"-ssl").Run()
+	exec.Command("systemctl", "reload", "apache2").Run()
+
+	return nil
+}
+
+// configureSSLVhostForFTP configures SSL vhost for ftp subdomain (info page)
+func (h *Handler) configureSSLVhostForFTP(fqdn string, cert *certInfo) error {
+	vhostPath := filepath.Join("/etc/apache2/sites-available", fqdn+"-ssl.conf")
+
+	vhostContent := fmt.Sprintf(`<VirtualHost *:443>
+    ServerName %s
+    
+    DocumentRoot /var/www/html
+    
+    SSLEngine on
+    SSLCertificateFile %s
+    SSLCertificateKeyFile %s
+    
+    <Directory /var/www/html>
+        Options -Indexes
+        AllowOverride None
+        Require all granted
+    </Directory>
+    
+    ErrorLog ${APACHE_LOG_DIR}/%s-ssl-error.log
+    CustomLog ${APACHE_LOG_DIR}/%s-ssl-access.log combined
+</VirtualHost>
+`, fqdn, cert.CertPath, cert.KeyPath, fqdn, fqdn)
+
+	if err := os.WriteFile(vhostPath, []byte(vhostContent), 0644); err != nil {
+		return err
+	}
+
+	exec.Command("a2ensite", fqdn+"-ssl").Run()
+	exec.Command("systemctl", "reload", "apache2").Run()
+
+	return nil
+}
+
+// configureSSLVhostForWWW configures SSL for www subdomain (same as main domain)
+func (h *Handler) configureSSLVhostForWWW(fqdn, username string, cert *certInfo) error {
+	// www subdomain typically shares the main domain's vhost
+	// Just ensure the certificate is properly configured
+
+	// Extract main domain from www.example.com
+	parts := strings.SplitN(fqdn, ".", 2)
+	if len(parts) < 2 {
+		return nil
+	}
+	mainDomain := parts[1]
+
+	// Check if main domain SSL vhost exists and update it
+	mainVhostPath := filepath.Join("/etc/apache2/sites-available", mainDomain+"-ssl.conf")
+	if _, err := os.Stat(mainVhostPath); err == nil {
+		// Main domain SSL vhost exists, www should be covered by ServerAlias
+		return nil
+	}
+
+	// Create separate www SSL vhost if main doesn't exist
+	docRoot := filepath.Join("/home", username, "public_html")
+	phpVersion := "8.1"
+
+	vhostPath := filepath.Join("/etc/apache2/sites-available", fqdn+"-ssl.conf")
+	vhostContent := fmt.Sprintf(`<VirtualHost *:443>
+    ServerName %s
+    DocumentRoot %s
+
+    SSLEngine on
+    SSLCertificateFile %s
+    SSLCertificateKeyFile %s
+
+    <Directory %s>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    <FilesMatch \.php$>
+        SetHandler "proxy:unix:/run/php/php%s-fpm-%s.sock|fcgi://localhost"
+    </FilesMatch>
+
+    ErrorLog ${APACHE_LOG_DIR}/%s-ssl-error.log
+    CustomLog ${APACHE_LOG_DIR}/%s-ssl-access.log combined
+</VirtualHost>
+`, fqdn, docRoot, cert.CertPath, cert.KeyPath, docRoot, phpVersion, username, fqdn, fqdn)
+
+	if err := os.WriteFile(vhostPath, []byte(vhostContent), 0644); err != nil {
+		return err
+	}
+
+	exec.Command("a2ensite", fqdn+"-ssl").Run()
 	exec.Command("systemctl", "reload", "apache2").Run()
 
 	return nil
