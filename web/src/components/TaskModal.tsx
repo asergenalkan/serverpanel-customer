@@ -26,7 +26,7 @@ export default function TaskModal({ isOpen, onClose, taskId, taskName, onComplet
     // Connect to WebSocket with token
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const token = localStorage.getItem('token');
-    const wsUrl = `${protocol}//${window.location.host}/ws/tasks/${taskId}?token=${token}`;
+    const wsUrl = `${protocol}//${window.location.host}/api/v1/ws/tasks/${taskId}?token=${token}`;
     
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
