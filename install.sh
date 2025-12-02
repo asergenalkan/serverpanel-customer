@@ -215,6 +215,17 @@ install_packages() {
         exit 1
     fi
     
+    # Ondrej PHP PPA ekle (MultiPHP desteği için)
+    log_progress "Ondrej PHP PPA ekleniyor"
+    if ! grep -r 'ondrej/php' /etc/apt/sources.list.d/ > /dev/null 2>&1; then
+        DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common > /dev/null 2>&1
+        add-apt-repository -y ppa:ondrej/php > /dev/null 2>&1
+        apt-get update > /dev/null 2>&1
+        log_done "Ondrej PHP PPA eklendi"
+    else
+        log_done "Ondrej PHP PPA zaten mevcut"
+    fi
+    
     # PHP paketleri
     log_progress "PHP ${PHP_VERSION} kuruluyor"
     local php_packages=(

@@ -2,7 +2,7 @@
 
 ## Mevcut Durum vs Hedef
 
-### ✅ Mevcut (ÇALIŞIYOR!) - Son Güncelleme: 3 Aralık 2024
+### ✅ Mevcut (ÇALIŞIYOR!) - Son Güncelleme: 3 Aralık 2025
 ```
 Admin giriş yapar
 ├── Hesap oluşturur → ✅ Gerçekten oluşur!
@@ -79,6 +79,32 @@ Admin giriş yapar
 │   │   └── display_errors
 │   ├── Paket bazlı PHP limitleri
 │   └── PHP-FPM pool otomatik güncelleme
+│
+├── Yazılım Yöneticisi (Admin) → ✅ Tam fonksiyonel!
+│   ├── PHP sürümleri kurma/kaldırma
+│   ├── PHP eklentileri kurma/kaldırma
+│   ├── Apache modülleri etkinleştirme/devre dışı bırakma
+│   ├── Ek yazılımlar kurma/kaldırma
+│   ├── Gerçek zamanlı log görüntüleme (WebSocket)
+│   └── Ondrej PHP PPA desteği (tüm PHP sürümleri)
+│
+├── Sunucu Ayarları (Admin) → ✅ Tam fonksiyonel!
+│   ├── MultiPHP aktif/pasif
+│   ├── Domain bazlı PHP aktif/pasif
+│   ├── Varsayılan PHP sürümü seçimi
+│   └── İzin verilen PHP sürümlerini belirleme
+│
+├── Sunucu Özellikleri (Müşteri) → ✅ Tam fonksiyonel!
+│   ├── Kurulu PHP sürümlerini görüntüleme
+│   ├── Kurulu PHP eklentilerini görüntüleme
+│   ├── Aktif Apache modüllerini görüntüleme
+│   └── Kurulu ek yazılımları görüntüleme
+│
+├── Sunucu Durumu (Admin) → ✅ Tam fonksiyonel!
+│   ├── Sunucu Bilgileri
+│   ├── Günlük İşlem Günlüğü
+│   ├── Top Processes
+│   └── Task Queue
 │
 ├── FTP Yönetimi (Pure-FTPd) → ✅ Tam fonksiyonel!
 │   ├── FTP hesabı oluşturma/silme

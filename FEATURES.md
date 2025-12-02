@@ -4,7 +4,7 @@ Bu dosya WHM/cPanel özelliklerini analiz eder ve ServerPanel'e eklenecek özell
 
 ---
 
-## 📊 Mevcut Durum Özeti (Son Güncelleme: 3 Aralık 2024)
+## 📊 Mevcut Durum Özeti (Son Güncelleme: 3 Aralık 2025)
 
 | Kategori | cPanel/WHM | ServerPanel | Tamamlanma |
 |----------|------------|-------------|------------|
@@ -18,15 +18,41 @@ Bu dosya WHM/cPanel özelliklerini analiz eder ve ServerPanel'e eklenecek özell
 | Dosya Yönetimi | ✅ | ✅ Tam fonksiyonel | %95 |
 | FTP Yönetimi | ✅ | ✅ Pure-FTPd | %90 |
 | SSL/TLS | ✅ | ✅ Let's Encrypt + Otomatik Vhost | %98 |
-| PHP Yönetimi | ✅ | ✅ MultiPHP | %80 |
+| **PHP Yönetimi** | ✅ | ✅ **MultiPHP + Yazılım Yöneticisi** | **%95** |
+| **Sunucu Yönetimi** | ✅ | ✅ **Sunucu Durumu + Yazılım Yöneticisi** | **%80** |
 | Backup | ✅ | ❌ | %0 |
 | Cron Jobs | ✅ | ❌ | %0 |
 | Güvenlik | ✅ | ⚠️ Temel + SpamAssassin + ClamAV | %40 |
 | Metrics/Logs | ✅ | ⚠️ Temel | %15 |
 | Reseller Sistemi | ✅ | ⚠️ Rol var | %10 |
-| **Kurulum Scripti** | ✅ | ✅ Tam otomatik + Migration + Mail | %98 |
+| **Kurulum Scripti** | ✅ | ✅ Tam otomatik + Migration + Mail + MultiPHP | %98 |
 
-### 🆕 Son Eklenen Özellikler (3 Aralık 2024)
+### 🆕 Son Eklenen Özellikler (3 Aralık 2025)
+- ✅ **Yazılım Yöneticisi** (Admin Panel)
+  - PHP sürümleri kurma/kaldırma (7.4, 8.0, 8.1, 8.2, 8.3)
+  - PHP eklentileri kurma/kaldırma
+  - Apache modülleri etkinleştirme/devre dışı bırakma
+  - Ek yazılımlar kurma/kaldırma (Redis, Memcached, ImageMagick vs.)
+  - **Gerçek zamanlı log görüntüleme** (WebSocket)
+- ✅ **Sunucu Ayarları** (Admin Panel)
+  - MultiPHP aktif/pasif
+  - Domain bazlı PHP aktif/pasif
+  - Varsayılan PHP sürümü seçimi
+  - İzin verilen PHP sürümlerini belirleme
+- ✅ **Sunucu Özellikleri** (Müşteri Panel)
+  - Kurulu PHP sürümlerini görüntüleme
+  - Kurulu PHP eklentilerini görüntüleme
+  - Aktif Apache modüllerini görüntüleme
+  - Kurulu ek yazılımları görüntüleme
+- ✅ **Ondrej PHP PPA** (install.sh)
+  - Tüm PHP sürümleri için destek (7.4-8.3)
+- ✅ **Sunucu Durumu Sayfaları** (Admin Panel)
+  - Sunucu Bilgileri
+  - Günlük İşlem Günlüğü
+  - Top Processes
+  - Task Queue
+
+### Önceki Özellikler
 - ✅ **Tam Mail Sistemi** (Postfix + Dovecot + Roundcube)
 - ✅ **DKIM Otomatik Kurulum** (hesap oluşturulduğunda)
 - ✅ **SPF/DMARC DNS Kayıtları** (otomatik eklenir)
