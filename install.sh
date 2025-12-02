@@ -834,7 +834,89 @@ DOVECOTMASTER
 
     log_done "Dovecot yapılandırıldı"
     
-    # 5. Servisleri başlat
+    # 6. SpamAssassin kurulumu
+    log_progress "SpamAssassin kuruluyor"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y spamassassin spamc > /dev/null 2>&1
+    
+    # SpamAssassin yapılandırma
+    cat > /etc/spamassassin/local.cf << 'SPAMCONF'
+# SpamAssassin configuration
+rewrite_header Subject [SPAM]
+report_safe 0
+required_score 5.0
+use_bayes 1
+bayes_auto_learn 1
+skip_rbl_checks 0
+use_razor2 0
+use_pyzor 0
+SPAMCONF
+
+    # SpamAssassin servisini etkinleştir
+    sed -i 's/ENABLED=0/ENABLED=1/' /etc/default/spamassassin 2>/dev/null || true
+    systemctl enable spamassassin > /dev/null 2>&1
+    systemctl start spamassassin > /dev/null 2>&1
+    
+    # Postfix'e SpamAssassin entegrasyonu
+    if ! grep -q "spamassassin" /etc/postfix/master.cf; then
+        cat >> /etc/postfix/master.cf << 'SPAMMASTER'
+# SpamAssassin integration
+spamassassin unix -     n       n       -       -       pipe
+  user=spamd argv=/usr/bin/spamc -f -e /usr/sbin/sendmail -oi -f \${sender} \${recipient}
+SPAMMASTER
+    fi
+    
+    log_done "SpamAssassin yapılandırıldı"
+    
+    # 7. ClamAV kurulumu (isteğe bağlı - büyük paket)
+    log_progress "ClamAV kuruluyor (bu biraz zaman alabilir)"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y clamav clamav-daemon clamav-milter > /dev/null 2>&1
+    
+    if command -v clamscan &> /dev/null; then
+        # ClamAV yapılandırma
+        systemctl stop clamav-freshclam > /dev/null 2>&1 || true
+        freshclam > /dev/null 2>&1 || true
+        systemctl start clamav-freshclam > /dev/null 2>&1 || true
+        systemctl enable clamav-daemon > /dev/null 2>&1
+        systemctl start clamav-daemon > /dev/null 2>&1 || true
+        
+        # ClamAV milter yapılandırma
+        cat > /etc/clamav/clamav-milter.conf << 'CLAMCONF'
+MilterSocket /var/run/clamav/clamav-milter.sock
+MilterSocketMode 666
+FixStaleSocket true
+User clamav
+AllowSupplementaryGroups true
+ReadTimeout 120
+Foreground false
+PidFile /var/run/clamav/clamav-milter.pid
+ClamdSocket unix:/var/run/clamav/clamd.ctl
+OnClean Accept
+OnInfected Reject
+OnFail Defer
+AddHeader Replace
+LogSyslog true
+LogFacility LOG_MAIL
+LogVerbose false
+LogInfected Basic
+LogClean Off
+MaxFileSize 25M
+SupportMultipleRecipients true
+RejectMsg Virus detected: %v
+CLAMCONF
+
+        systemctl enable clamav-milter > /dev/null 2>&1
+        systemctl restart clamav-milter > /dev/null 2>&1 || true
+        
+        # Postfix'e ClamAV milter ekle
+        postconf -e "smtpd_milters = inet:localhost:8891, unix:/var/run/clamav/clamav-milter.sock"
+        postconf -e "non_smtpd_milters = inet:localhost:8891, unix:/var/run/clamav/clamav-milter.sock"
+        
+        log_done "ClamAV yapılandırıldı"
+    else
+        log_warn "ClamAV kurulamadı, atlanıyor"
+    fi
+    
+    # 8. Servisleri başlat
     log_progress "Mail servisleri başlatılıyor"
     systemctl enable postfix dovecot > /dev/null 2>&1
     systemctl restart postfix dovecot > /dev/null 2>&1
@@ -842,9 +924,11 @@ DOVECOTMASTER
     sleep 2
     if systemctl is-active --quiet postfix && systemctl is-active --quiet dovecot; then
         log_done "Mail servisleri başlatıldı"
-        log_info "SMTP: 25, 587 (submission)"
+        log_info "SMTP: 25, 587 (submission), 465 (SMTPS)"
         log_info "IMAP: 143, 993 (SSL)"
         log_info "POP3: 110, 995 (SSL)"
+        log_info "SpamAssassin: aktif"
+        log_info "ClamAV: $(systemctl is-active clamav-daemon 2>/dev/null || echo 'pasif')"
     else
         log_warn "Mail servisleri başlatılamadı"
     fi
@@ -1451,6 +1535,47 @@ migrate_database() {
         log_done "quota_mb sütunu güncellendi"
     fi
     
+    # email_settings tablosu var mı kontrol et
+    if ! sqlite3 "$DB_PATH" ".tables" | grep -q "email_settings"; then
+        log_progress "email_settings tablosu oluşturuluyor"
+        sqlite3 "$DB_PATH" "CREATE TABLE IF NOT EXISTS email_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            domain_id INTEGER NOT NULL UNIQUE,
+            hourly_limit INTEGER DEFAULT 100,
+            daily_limit INTEGER DEFAULT 500,
+            dkim_enabled INTEGER DEFAULT 0,
+            dkim_selector TEXT DEFAULT 'default',
+            dkim_private_key TEXT,
+            dkim_public_key TEXT,
+            spf_record TEXT,
+            dmarc_record TEXT,
+            catch_all_email TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (domain_id) REFERENCES domains(id) ON DELETE CASCADE
+        );"
+        log_done "email_settings tablosu oluşturuldu"
+    else
+        log_info "email_settings tablosu mevcut"
+    fi
+    
+    # email_send_log tablosu var mı kontrol et
+    if ! sqlite3 "$DB_PATH" ".tables" | grep -q "email_send_log"; then
+        log_progress "email_send_log tablosu oluşturuluyor"
+        sqlite3 "$DB_PATH" "CREATE TABLE IF NOT EXISTS email_send_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email_account_id INTEGER NOT NULL,
+            recipient TEXT NOT NULL,
+            subject TEXT,
+            sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            status TEXT DEFAULT 'sent',
+            FOREIGN KEY (email_account_id) REFERENCES email_accounts(id) ON DELETE CASCADE
+        );"
+        log_done "email_send_log tablosu oluşturuldu"
+    else
+        log_info "email_send_log tablosu mevcut"
+    fi
+    
     log_info "Veritabanı migrasyonu tamamlandı ✓"
 }
 
@@ -1527,7 +1652,7 @@ CRONEOF
 health_check() {
     log_step "Sistem Sağlık Kontrolü"
     
-    local services=("mysql" "apache2" "php${PHP_VERSION}-fpm" "bind9" "pure-ftpd" "postfix" "dovecot" "serverpanel")
+    local services=("mysql" "apache2" "php${PHP_VERSION}-fpm" "bind9" "pure-ftpd" "postfix" "dovecot" "opendkim" "spamassassin" "serverpanel")
     for svc in "${services[@]}"; do
         if systemctl is-active --quiet "$svc"; then
             log_info "$svc: aktif ✓"
@@ -1535,6 +1660,13 @@ health_check() {
             log_warn "$svc: çalışmıyor"
         fi
     done
+    
+    # ClamAV kontrolü (isteğe bağlı)
+    if systemctl is-active --quiet clamav-daemon; then
+        log_info "clamav-daemon: aktif ✓"
+    else
+        log_info "clamav-daemon: kurulu değil (isteğe bağlı)"
+    fi
     
     # Socket kontrolleri
     [[ -S /var/run/mysqld/mysqld.sock ]] && log_info "MySQL socket ✓" || log_error "MySQL socket yok!"
@@ -1553,6 +1685,19 @@ health_check() {
         log_info "BIND9 config ✓"
     else
         log_warn "BIND9 config hatası var"
+    fi
+    
+    # Mail port kontrolü
+    if netstat -tlnp 2>/dev/null | grep -q ":25 "; then
+        log_info "SMTP (25): dinleniyor ✓"
+    else
+        log_warn "SMTP (25): dinlenmiyor"
+    fi
+    
+    if netstat -tlnp 2>/dev/null | grep -q ":143 "; then
+        log_info "IMAP (143): dinleniyor ✓"
+    else
+        log_warn "IMAP (143): dinlenmiyor"
     fi
 }
 

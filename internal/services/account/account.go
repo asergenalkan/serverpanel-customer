@@ -211,6 +211,12 @@ func (s *Service) CreateAccount(req CreateAccountRequest) (*Account, error) {
 		// Don't fail account creation if DNS fails
 	}
 
+	// Create webmail subdomain vhost
+	if err := s.createWebmailVhost(req.Domain); err != nil {
+		log.Printf("Warning: failed to create webmail vhost: %v", err)
+		// Don't fail account creation if webmail vhost fails
+	}
+
 	if err := s.createWelcomePage(req.Username, req.Domain, documentRoot); err != nil {
 		log.Printf("Warning: failed to create welcome page: %v", err)
 	}
@@ -376,6 +382,26 @@ func (s *Service) createDNSZone(domain string) error {
 	}
 
 	log.Printf("✅ DNS zone created for: %s", domain)
+	return nil
+}
+
+// createWebmailVhost creates a webmail subdomain vhost for the domain
+func (s *Service) createWebmailVhost(domain string) error {
+	driverType := webserver.DriverApache
+	if s.cfg.WebServer == "nginx" {
+		driverType = webserver.DriverNginx
+	}
+
+	driver := webserver.NewDriver(driverType, s.cfg.SimulateMode, s.cfg.SimulateBasePath)
+
+	// Only Apache supports webmail vhost for now
+	if apacheDriver, ok := driver.(*webserver.ApacheDriver); ok {
+		if err := apacheDriver.CreateWebmailVhost(domain); err != nil {
+			return err
+		}
+		log.Printf("✅ Webmail vhost created for: webmail.%s", domain)
+	}
+
 	return nil
 }
 
