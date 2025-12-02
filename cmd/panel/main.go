@@ -44,11 +44,7 @@ func main() {
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 	}))
 
-	// API routes
-	apiRouter := app.Group("/api/v1")
-	api.SetupRoutes(apiRouter, db)
-
-	// WebSocket route (must be before static files and SPA fallback)
+	// WebSocket route (must be before API routes to avoid JWT middleware)
 	app.Use("/api/v1/ws", func(c *fiber.Ctx) error {
 		if websocket.IsWebSocketUpgrade(c) {
 			return c.Next()
@@ -56,6 +52,10 @@ func main() {
 		return fiber.ErrUpgradeRequired
 	})
 	app.Get("/api/v1/ws/tasks/:task_id", websocket.New(api.HandleTaskWebSocketDirect(db, cfg)))
+
+	// API routes
+	apiRouter := app.Group("/api/v1")
+	api.SetupRoutes(apiRouter, db)
 
 	// Serve static files (frontend)
 	app.Static("/", "./public")
