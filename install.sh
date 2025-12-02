@@ -548,9 +548,13 @@ configure_pureftpd() {
     # Virtual users için PureDB kullan
     log_progress "Pure-FTPd virtual users yapılandırılıyor"
     
-    # PureDB auth yöntemini etkinleştir
-    ln -sf /etc/pure-ftpd/conf/PureDB /etc/pure-ftpd/auth/50pure 2>/dev/null || true
+    # PureDB auth yöntemini etkinleştir (sadece PureDB kullan)
     echo "/etc/pure-ftpd/pureftpd.pdb" > "$conf_dir/PureDB"
+    ln -sf /etc/pure-ftpd/conf/PureDB /etc/pure-ftpd/auth/50pure 2>/dev/null || true
+    
+    # PAM ve Unix auth'u devre dışı bırak (virtual users için gerekli)
+    rm -f /etc/pure-ftpd/auth/65unix 2>/dev/null || true
+    rm -f /etc/pure-ftpd/auth/70pam 2>/dev/null || true
     
     # Temel ayarlar
     echo "yes" > "$conf_dir/ChrootEveryone"      # Kullanıcıları kendi dizinlerine kilitle

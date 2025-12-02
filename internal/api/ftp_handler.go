@@ -1,8 +1,6 @@
 package api
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"os/exec"
@@ -232,7 +230,8 @@ func (h *Handler) CreateFTPAccount(c *fiber.Ctx) error {
 
 	// Create Pure-FTPd virtual user
 	if !config.IsDevelopment() {
-		if err := createPureFTPdUser(ftpUsername, req.Password, homeDir, req.QuotaMB); err != nil {
+		// Use system username (not www-data) to avoid uid < 1000 rejection
+		if err := createPureFTPdUser(ftpUsername, req.Password, homeDir, systemUsername, req.QuotaMB); err != nil {
 			// Rollback database insert
 			h.db.Exec("DELETE FROM ftp_accounts WHERE id = ?", accountID)
 			return c.Status(fiber.StatusInternalServerError).JSON(models.APIResponse{
@@ -607,22 +606,19 @@ func boolToStr(b bool) string {
 
 // Pure-FTPd integration functions
 
-func createPureFTPdUser(username, password, homeDir string, quotaMB int) error {
+func createPureFTPdUser(username, password, homeDir, systemUser string, quotaMB int) error {
 	// Create virtual user using pure-pw
-	// pure-pw useradd username -u ftpuser -g ftpgroup -d /home/user/public_html -m
+	// pure-pw useradd username -u systemuser -g systemuser -d /home/user/public_html -m
+	// IMPORTANT: Must use system user (uid >= 1000) not www-data (uid 33)
+	// Pure-FTPd rejects users with uid < 1000 by default
 
 	// First, ensure the home directory exists
 	os.MkdirAll(homeDir, 0755)
 
-	// Generate a random salt for the password
-	salt := make([]byte, 8)
-	rand.Read(salt)
-	saltHex := hex.EncodeToString(salt)
-
-	// Create the user with pure-pw
+	// Create the user with pure-pw using the system username
 	cmd := exec.Command("pure-pw", "useradd", username,
-		"-u", "www-data",
-		"-g", "www-data",
+		"-u", systemUser,
+		"-g", systemUser,
 		"-d", homeDir,
 		"-m")
 
@@ -649,8 +645,6 @@ func createPureFTPdUser(username, password, homeDir string, quotaMB int) error {
 
 	// Rebuild the PureDB
 	exec.Command("pure-pw", "mkdb").Run()
-
-	_ = saltHex // suppress unused warning
 
 	return nil
 }
