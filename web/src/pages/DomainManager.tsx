@@ -71,7 +71,8 @@ export default function DomainManagerPage() {
   const [showAddDomainModal, setShowAddDomainModal] = useState(false);
   const [showAddSubdomainModal, setShowAddSubdomainModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<{ type: 'domain' | 'subdomain'; id: number; name: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'domain' | 'subdomain'; id: number; name: string; documentRoot?: string } | null>(null);
+  const [deleteFiles, setDeleteFiles] = useState(false);
 
   // Form states
   const [domainForm, setDomainForm] = useState({ name: '', document_root: '' });
@@ -165,13 +166,14 @@ export default function DomainManagerPage() {
     try {
       setActionLoading(deleteTarget.id);
       if (deleteTarget.type === 'domain') {
-        await domainsAPI.delete(deleteTarget.id);
+        await domainsAPI.delete(deleteTarget.id, deleteFiles);
       } else {
-        await subdomainsAPI.delete(deleteTarget.id);
+        await subdomainsAPI.delete(deleteTarget.id, deleteFiles);
       }
-      setMessage({ type: 'success', text: `${deleteTarget.type === 'domain' ? 'Domain' : 'Subdomain'} silindi` });
+      setMessage({ type: 'success', text: `${deleteTarget.type === 'domain' ? 'Domain' : 'Subdomain'} silindi${deleteFiles ? ' (dosyalar dahil)' : ''}` });
       setShowDeleteModal(false);
       setDeleteTarget(null);
+      setDeleteFiles(false);
       await fetchData();
     } catch (error: any) {
       setMessage({ type: 'error', text: error.response?.data?.error || 'Silme işlemi başarısız' });
@@ -180,8 +182,9 @@ export default function DomainManagerPage() {
     }
   };
 
-  const openDeleteModal = (type: 'domain' | 'subdomain', id: number, name: string) => {
-    setDeleteTarget({ type, id, name });
+  const openDeleteModal = (type: 'domain' | 'subdomain', id: number, name: string, documentRoot?: string) => {
+    setDeleteTarget({ type, id, name, documentRoot });
+    setDeleteFiles(false);
     setShowDeleteModal(true);
   };
 
@@ -415,7 +418,7 @@ export default function DomainManagerPage() {
                             <Button 
                               variant="ghost" 
                               size="sm"
-                              onClick={() => openDeleteModal('domain', domain.id, domain.name)}
+                              onClick={() => openDeleteModal('domain', domain.id, domain.name, domain.document_root)}
                               disabled={actionLoading === domain.id}
                             >
                               <Trash2 className="w-4 h-4 text-red-500" />
@@ -489,7 +492,7 @@ export default function DomainManagerPage() {
                           <Button 
                             variant="ghost" 
                             size="sm"
-                            onClick={() => openDeleteModal('subdomain', subdomain.id, subdomain.full_name)}
+                            onClick={() => openDeleteModal('subdomain', subdomain.id, subdomain.full_name, subdomain.document_root)}
                             disabled={actionLoading === subdomain.id}
                           >
                             <Trash2 className="w-4 h-4 text-red-500" />
@@ -638,24 +641,56 @@ export default function DomainManagerPage() {
         {showDeleteModal && deleteTarget && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-background rounded-lg shadow-xl w-full max-w-md">
-              <div className="p-6 text-center">
-                <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-4">
-                  <Trash2 className="w-6 h-6 text-red-600" />
+              <div className="p-6">
+                <div className="text-center">
+                  <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-4">
+                    <Trash2 className="w-6 h-6 text-red-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">
+                    {deleteTarget.type === 'domain' ? 'Domain' : 'Subdomain'} Sil
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    <strong>{deleteTarget.name}</strong> {deleteTarget.type === 'domain' ? "domain'ini" : "subdomain'ini"} silmek istediğinizden emin misiniz?
+                    {deleteTarget.type === 'domain' && ' Tüm subdomain\'ler de silinecektir.'}
+                  </p>
                 </div>
-                <h3 className="text-lg font-semibold mb-2">
-                  {deleteTarget.type === 'domain' ? 'Domain' : 'Subdomain'} Sil
-                </h3>
-                <p className="text-muted-foreground mb-4">
-                  <strong>{deleteTarget.name}</strong> {deleteTarget.type === 'domain' ? "domain'ini" : "subdomain'ini"} silmek istediğinizden emin misiniz?
-                  {deleteTarget.type === 'domain' && ' Tüm subdomain\'ler de silinecektir.'}
-                </p>
+
+                {/* Delete files option */}
+                {deleteTarget.type !== 'domain' || (deleteTarget.type === 'domain' && domains.find(d => d.id === deleteTarget.id)?.domain_type !== 'primary') ? (
+                  <div className="bg-muted/50 rounded-lg p-4 mb-4">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={deleteFiles}
+                        onChange={(e) => setDeleteFiles(e.target.checked)}
+                        className="mt-1 w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                      />
+                      <div>
+                        <span className="font-medium text-foreground">Dosyaları da sil</span>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {deleteTarget.documentRoot || 'İlgili dizin'} klasörü ve içindeki tüm dosyalar kalıcı olarak silinecektir.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                ) : null}
+
+                {deleteFiles && (
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 mb-4">
+                    <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                      <span>Dikkat: Dosyalar geri alınamaz şekilde silinecektir!</span>
+                    </p>
+                  </div>
+                )}
+
                 <div className="flex justify-center gap-2">
-                  <Button variant="outline" onClick={() => { setShowDeleteModal(false); setDeleteTarget(null); }}>
+                  <Button variant="outline" onClick={() => { setShowDeleteModal(false); setDeleteTarget(null); setDeleteFiles(false); }}>
                     İptal
                   </Button>
                   <Button variant="destructive" onClick={handleDelete} disabled={actionLoading !== null}>
                     {actionLoading !== null && <RefreshCw className="w-4 h-4 mr-2 animate-spin" />}
-                    Sil
+                    {deleteFiles ? 'Dosyalarla Birlikte Sil' : 'Sil'}
                   </Button>
                 </div>
               </div>

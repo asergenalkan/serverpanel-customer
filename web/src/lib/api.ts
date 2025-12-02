@@ -91,7 +91,7 @@ export const domainsAPI = {
   getLimits: () => api.get('/domains/limits'),
   create: (data: { name: string; domain_type?: string; document_root?: string }) => api.post('/domains', data),
   update: (id: number, data: { document_root?: string; php_version?: string; active?: boolean }) => api.put(`/domains/${id}`, data),
-  delete: (id: number) => api.delete(`/domains/${id}`),
+  delete: (id: number, deleteFiles?: boolean) => api.delete(`/domains/${id}`, { params: { delete_files: deleteFiles } }),
 };
 
 // Subdomains
@@ -99,7 +99,7 @@ export const subdomainsAPI = {
   list: () => api.get('/subdomains'),
   create: (data: { domain_id: number; name: string; document_root?: string; redirect_url?: string; redirect_type?: string }) => 
     api.post('/subdomains', data),
-  delete: (id: number) => api.delete(`/subdomains/${id}`),
+  delete: (id: number, deleteFiles?: boolean) => api.delete(`/subdomains/${id}`, { params: { delete_files: deleteFiles } }),
 };
 
 // Databases

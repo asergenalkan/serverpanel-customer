@@ -369,18 +369,21 @@ func (h *Handler) DeleteDomain(c *fiber.Ctx) error {
 		})
 	}
 
+	// Check if files should be deleted
+	deleteFiles := c.Query("delete_files") == "true"
+
 	userID := c.Locals("user_id").(int64)
 	role := c.Locals("role").(string)
 
 	// Get domain info
 	var domainUserID int64
-	var domainName, domainType, username string
+	var domainName, domainType, username, documentRoot string
 	err = h.db.QueryRow(`
-		SELECT d.user_id, d.name, d.domain_type, u.username 
+		SELECT d.user_id, d.name, d.domain_type, u.username, COALESCE(d.document_root, '')
 		FROM domains d 
 		JOIN users u ON d.user_id = u.id 
 		WHERE d.id = ?
-	`, id).Scan(&domainUserID, &domainName, &domainType, &username)
+	`, id).Scan(&domainUserID, &domainName, &domainType, &username, &documentRoot)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(models.APIResponse{
 			Success: false,
@@ -415,6 +418,24 @@ func (h *Handler) DeleteDomain(c *fiber.Ctx) error {
 
 	// Remove system resources
 	go h.removeDomainResources(username, domainName)
+
+	// Delete document root if requested
+	if deleteFiles && documentRoot != "" {
+		go func() {
+			if !config.IsDevelopment() {
+				// Safety check: only delete if path is under /home
+				if strings.HasPrefix(documentRoot, "/home/") {
+					if err := os.RemoveAll(documentRoot); err != nil {
+						log.Printf("❌ Domain dizini silinemedi: %s - %v", documentRoot, err)
+					} else {
+						log.Printf("✅ Domain dizini silindi: %s", documentRoot)
+					}
+				}
+			} else {
+				log.Printf("🔧 [DEV] Domain dizini silinecek: %s", documentRoot)
+			}
+		}()
+	}
 
 	return c.JSON(models.APIResponse{
 		Success: true,
@@ -591,18 +612,21 @@ func (h *Handler) DeleteSubdomain(c *fiber.Ctx) error {
 		})
 	}
 
+	// Check if files should be deleted
+	deleteFiles := c.Query("delete_files") == "true"
+
 	userID := c.Locals("user_id").(int64)
 	role := c.Locals("role").(string)
 
 	// Get subdomain info
 	var subdomainUserID int64
-	var fullName, username string
+	var fullName, username, documentRoot string
 	err = h.db.QueryRow(`
-		SELECT s.user_id, s.full_name, u.username
+		SELECT s.user_id, s.full_name, u.username, COALESCE(s.document_root, '')
 		FROM subdomains s
 		JOIN users u ON s.user_id = u.id
 		WHERE s.id = ?
-	`, id).Scan(&subdomainUserID, &fullName, &username)
+	`, id).Scan(&subdomainUserID, &fullName, &username, &documentRoot)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(models.APIResponse{
 			Success: false,
@@ -629,6 +653,24 @@ func (h *Handler) DeleteSubdomain(c *fiber.Ctx) error {
 
 	// Remove system resources
 	go h.removeSubdomainResources(username, fullName)
+
+	// Delete document root if requested
+	if deleteFiles && documentRoot != "" {
+		go func() {
+			if !config.IsDevelopment() {
+				// Safety check: only delete if path is under /home
+				if strings.HasPrefix(documentRoot, "/home/") {
+					if err := os.RemoveAll(documentRoot); err != nil {
+						log.Printf("❌ Subdomain dizini silinemedi: %s - %v", documentRoot, err)
+					} else {
+						log.Printf("✅ Subdomain dizini silindi: %s", documentRoot)
+					}
+				}
+			} else {
+				log.Printf("🔧 [DEV] Subdomain dizini silinecek: %s", documentRoot)
+			}
+		}()
+	}
 
 	return c.JSON(models.APIResponse{
 		Success: true,
