@@ -273,9 +273,26 @@ export default function FTPAccountsPage() {
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setMessage({ type: 'success', text: 'Panoya kopyalandı' });
+  const copyToClipboard = async (text: string) => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      setMessage({ type: 'success', text: 'Panoya kopyalandı' });
+    } catch (err) {
+      console.error('Copy failed', err);
+      setMessage({ type: 'error', text: 'Kopyalama başarısız oldu' });
+    }
   };
 
   const generatePassword = (): string => {
@@ -345,8 +362,8 @@ export default function FTPAccountsPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className={`w-3 h-3 rounded-full ${
-                    serverStatus === 'active' ? 'bg-green-500' : 
-                    serverStatus === 'development' ? 'bg-yellow-500' : 'bg-red-500'
+                    serverStatus === 'active' ? 'bg-emerald-500' : 
+                    serverStatus === 'development' ? 'bg-yellow-500' : 'bg-rose-500'
                   }`} />
                   <span className="font-medium">
                     {serverStatus === 'active' ? 'Çalışıyor' : 
@@ -421,10 +438,10 @@ export default function FTPAccountsPage() {
                           </td>
                         )}
                         <td className="py-3 px-4">
-                          <span className={`px-2 py-1 rounded-full text-xs ${
+                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${
                             account.active 
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
-                              : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700' 
+                              : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800'
                           }`}>
                             {account.active ? 'Aktif' : 'Pasif'}
                           </span>
