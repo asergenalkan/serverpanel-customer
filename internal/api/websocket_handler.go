@@ -349,9 +349,32 @@ func getTaskName(taskType, action, target string) string {
 }
 
 func (h *Handler) installPHPWithLogs(taskID, version string) (bool, error) {
+	// First, ensure ondrej/php PPA is added (required for PHP 7.x and multiple PHP versions)
+	taskManager.addLog(taskID, "📋 Ondrej PHP PPA kontrol ediliyor...")
+
+	// Check if PPA is already added
+	checkPPA := exec.Command("bash", "-c", "grep -r 'ondrej/php' /etc/apt/sources.list.d/ 2>/dev/null || true")
+	ppaOutput, _ := checkPPA.Output()
+
+	if len(ppaOutput) == 0 {
+		taskManager.addLog(taskID, "➕ Ondrej PHP PPA ekleniyor...")
+		taskManager.addLog(taskID, "")
+
+		// Add PPA
+		err := RunCommandWithLogs(taskID, "bash", "-c",
+			"DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common && add-apt-repository -y ppa:ondrej/php")
+		if err != nil {
+			taskManager.addLog(taskID, "⚠️ PPA eklenemedi, devam ediliyor...")
+		}
+		taskManager.addLog(taskID, "")
+	} else {
+		taskManager.addLog(taskID, "✓ Ondrej PHP PPA zaten mevcut")
+	}
+
 	packages := fmt.Sprintf("php%s-fpm php%s-cli php%s-common php%s-mysql php%s-gd php%s-curl php%s-mbstring php%s-xml php%s-zip",
 		version, version, version, version, version, version, version, version, version)
 
+	taskManager.addLog(taskID, "")
 	taskManager.addLog(taskID, fmt.Sprintf("📦 Paketler: %s", packages))
 	taskManager.addLog(taskID, "")
 
