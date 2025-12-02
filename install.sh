@@ -1001,35 +1001,16 @@ install_serverpanel() {
     chmod +x "$INSTALL_DIR/serverpanel"
     log_done "Backend derlendi"
     
-    log_progress "Frontend indiriliyor"
+    # Frontend: web/dist -> public kopyala
+    log_progress "Frontend kopyalanıyor"
     mkdir -p "$INSTALL_DIR/public"
     
-    local FRONTEND_URL="https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/serverpanel-frontend.tar.gz"
-    rm -f /tmp/frontend.tar.gz
-    
-    # wget ile indir (daha güvenilir)
-    if command -v wget &> /dev/null; then
-        wget -q --timeout=30 -O /tmp/frontend.tar.gz "$FRONTEND_URL" 2>/dev/null
+    if [[ -d "$INSTALL_DIR/web/dist" ]] && [[ -f "$INSTALL_DIR/web/dist/index.html" ]]; then
+        cp -r "$INSTALL_DIR/web/dist/"* "$INSTALL_DIR/public/"
+        log_done "Frontend kopyalandı"
     else
-        curl -fsSL --connect-timeout 30 "$FRONTEND_URL" -o /tmp/frontend.tar.gz 2>/dev/null
-    fi
-    
-    # Dosya kontrolü
-    if [[ -f /tmp/frontend.tar.gz ]]; then
-        local filesize=$(stat -c%s /tmp/frontend.tar.gz 2>/dev/null || echo "0")
-        if [[ "$filesize" -gt 10000 ]]; then
-            tar -xzf /tmp/frontend.tar.gz -C "$INSTALL_DIR/public" 2>/dev/null
-            rm -f /tmp/frontend.tar.gz
-            log_done "Frontend indirildi (${filesize} bytes)"
-        else
-            log_warn "Frontend dosyası çok küçük: ${filesize} bytes - Manuel indirme gerekebilir"
-            rm -f /tmp/frontend.tar.gz
-            # Fallback: Boş index.html oluştur
-            echo "<html><body><h1>ServerPanel</h1><p>Frontend yüklenemedi. Manuel olarak yükleyin.</p></body></html>" > "$INSTALL_DIR/public/index.html"
-        fi
-    else
-        log_warn "Frontend indirilemedi - Manuel indirme gerekebilir"
-        echo "<html><body><h1>ServerPanel</h1><p>Frontend yüklenemedi. Manuel olarak yükleyin.</p></body></html>" > "$INSTALL_DIR/public/index.html"
+        log_error "Frontend bulunamadı: $INSTALL_DIR/web/dist"
+        exit 1
     fi
 }
 
