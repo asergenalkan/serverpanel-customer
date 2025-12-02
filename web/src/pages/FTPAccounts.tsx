@@ -62,12 +62,15 @@ export default function FTPAccountsPage() {
   const [showPassword, setShowPassword] = useState<number | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [directories, setDirectories] = useState<string[]>([]);
-  const [loadingDirs, setLoadingDirs] = useState(false);
+  const [dirSuggestions, setDirSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [unlimitedQuota, setUnlimitedQuota] = useState(true);
   
   // Form state
   const [formData, setFormData] = useState({
     username: '',
     password: '',
+    passwordConfirm: '',
     directory: 'public_html', // Relative path from home
     quota_mb: 0,
   });
@@ -113,18 +116,28 @@ export default function FTPAccountsPage() {
       return;
     }
 
+    if (formData.password !== formData.passwordConfirm) {
+      setMessage({ type: 'error', text: 'Şifreler eşleşmiyor' });
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setMessage({ type: 'error', text: 'Şifre en az 6 karakter olmalı' });
+      return;
+    }
+
     try {
       // directory alanını backend'e gönder (backend tam path'e çevirecek)
       const response = await ftpAPI.create({
         username: formData.username,
         password: formData.password,
         home_directory: formData.directory, // Relative path gönder
-        quota_mb: formData.quota_mb,
+        quota_mb: unlimitedQuota ? 0 : formData.quota_mb,
       });
       if (response.data.success) {
         setMessage({ type: 'success', text: 'FTP hesabı oluşturuldu' });
         setShowCreateModal(false);
-        setFormData({ username: '', password: '', directory: 'public_html', quota_mb: 0 });
+        resetForm();
         fetchData();
       } else {
         setMessage({ type: 'error', text: response.data.error || 'Oluşturma başarısız' });
@@ -134,8 +147,14 @@ export default function FTPAccountsPage() {
     }
   };
 
+  const resetForm = () => {
+    setFormData({ username: '', password: '', passwordConfirm: '', directory: 'public_html', quota_mb: 0 });
+    setUnlimitedQuota(true);
+    setShowSuggestions(false);
+    setDirSuggestions([]);
+  };
+
   const fetchDirectories = async () => {
-    setLoadingDirs(true);
     try {
       const response = await filesAPI.list('/');
       if (response.data.success && response.data.data) {
@@ -143,16 +162,51 @@ export default function FTPAccountsPage() {
           .filter((item: any) => item.is_dir)
           .map((item: any) => item.name);
         setDirectories(dirs);
+        setDirSuggestions(dirs);
       }
     } catch (error) {
       console.error('Failed to fetch directories:', error);
-    } finally {
-      setLoadingDirs(false);
     }
   };
 
+  const handleDirectoryInput = (value: string) => {
+    setFormData({ ...formData, directory: value });
+    
+    // Filter suggestions based on input
+    if (value.length > 0) {
+      const filtered = directories.filter(dir => 
+        dir.toLowerCase().startsWith(value.toLowerCase())
+      );
+      setDirSuggestions(filtered);
+      setShowSuggestions(filtered.length > 0);
+    } else {
+      setDirSuggestions(directories);
+      setShowSuggestions(true);
+    }
+  };
+
+  const selectDirectory = (dir: string) => {
+    setFormData({ ...formData, directory: dir });
+    setShowSuggestions(false);
+  };
+
+  const getPasswordStrength = (password: string): { score: number; label: string; color: string } => {
+    let score = 0;
+    if (password.length >= 6) score += 20;
+    if (password.length >= 10) score += 20;
+    if (/[a-z]/.test(password)) score += 15;
+    if (/[A-Z]/.test(password)) score += 15;
+    if (/[0-9]/.test(password)) score += 15;
+    if (/[^a-zA-Z0-9]/.test(password)) score += 15;
+    
+    if (score < 40) return { score, label: 'Çok Zayıf', color: 'bg-red-500' };
+    if (score < 60) return { score, label: 'Zayıf', color: 'bg-orange-500' };
+    if (score < 80) return { score, label: 'Orta', color: 'bg-yellow-500' };
+    return { score, label: 'Güçlü', color: 'bg-green-500' };
+  };
+
   const openCreateModal = () => {
-    setFormData({ username: '', password: '', directory: 'public_html', quota_mb: 0 });
+    resetForm();
     fetchDirectories();
     setShowCreateModal(true);
   };
@@ -220,13 +274,13 @@ export default function FTPAccountsPage() {
     setMessage({ type: 'success', text: 'Panoya kopyalandı' });
   };
 
-  const generatePassword = () => {
+  const generatePassword = (): string => {
     const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
     let password = '';
     for (let i = 0; i < 16; i++) {
       password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    setFormData({ ...formData, password });
+    return password;
   };
 
   return (
@@ -427,29 +481,36 @@ export default function FTPAccountsPage() {
           </CardContent>
         </Card>
 
-        {/* Create Modal */}
+        {/* Create Modal - cPanel Style */}
         {showCreateModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-background rounded-lg p-6 w-full max-w-md">
-              <h2 className="text-xl font-bold mb-4">Yeni FTP Hesabı</h2>
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto">
+            <div className="bg-background rounded-lg p-6 w-full max-w-lg my-8">
+              <h2 className="text-xl font-bold mb-6">FTP Hesabı Ekle</h2>
               
-              <div className="space-y-4">
+              <div className="space-y-5">
+                {/* Kullanıcı Adı */}
                 <div>
-                  <label className="block text-sm font-medium mb-1">Kullanıcı Adı</label>
-                  <input
-                    type="text"
-                    value={formData.username}
-                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg bg-background"
-                    placeholder="ftpuser"
-                  />
+                  <label className="block text-sm font-medium mb-2">Oturum Açma</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={formData.username}
+                      onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                      className="flex-1 px-3 py-2 border rounded-lg bg-background"
+                      placeholder="ftpkullanici"
+                    />
+                    <span className="text-sm text-muted-foreground bg-muted px-3 py-2 rounded-lg">
+                      _{user?.username}
+                    </span>
+                  </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Sistem kullanıcı adınız prefix olarak eklenecek
+                    Tam kullanıcı adı: <span className="font-mono">{user?.username}_{formData.username || 'ftpkullanici'}</span>
                   </p>
                 </div>
 
+                {/* Şifre */}
                 <div>
-                  <label className="block text-sm font-medium mb-1">Şifre</label>
+                  <label className="block text-sm font-medium mb-2">Şifre</label>
                   <div className="flex gap-2">
                     <input
                       type={showPassword === -1 ? 'text' : 'password'}
@@ -465,51 +526,134 @@ export default function FTPAccountsPage() {
                     >
                       {showPassword === -1 ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </Button>
-                    <Button type="button" variant="outline" onClick={generatePassword}>
+                    <Button type="button" variant="outline" onClick={() => {
+                      const pwd = generatePassword();
+                      setFormData({ ...formData, password: pwd, passwordConfirm: pwd });
+                    }}>
                       Oluştur
                     </Button>
                   </div>
+                  
+                  {/* Şifre Güç Göstergesi */}
+                  {formData.password && (
+                    <div className="mt-2">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full transition-all ${getPasswordStrength(formData.password).color}`}
+                            style={{ width: `${getPasswordStrength(formData.password).score}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {getPasswordStrength(formData.password).label} ({getPasswordStrength(formData.password).score}/100)
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
+                {/* Şifre Tekrar */}
                 <div>
-                  <label className="block text-sm font-medium mb-1">
-                    <FolderOpen className="w-4 h-4 inline mr-1" />
-                    Erişim Dizini
-                  </label>
-                  <select
-                    value={formData.directory}
-                    onChange={(e) => setFormData({ ...formData, directory: e.target.value })}
+                  <label className="block text-sm font-medium mb-2">Şifre (Tekrar)</label>
+                  <input
+                    type={showPassword === -1 ? 'text' : 'password'}
+                    value={formData.passwordConfirm}
+                    onChange={(e) => setFormData({ ...formData, passwordConfirm: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg bg-background"
-                    disabled={loadingDirs}
-                  >
-                    <option value="public_html">public_html (Web Kök Dizini)</option>
-                    {directories.filter(d => d !== 'public_html').map((dir) => (
-                      <option key={dir} value={dir}>{dir}</option>
-                    ))}
-                  </select>
+                    placeholder="••••••••"
+                  />
+                  {formData.password && formData.passwordConfirm && formData.password !== formData.passwordConfirm && (
+                    <p className="text-xs text-red-500 mt-1">Şifreler eşleşmiyor</p>
+                  )}
+                </div>
+
+                {/* Dizin - cPanel Style */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    <FolderOpen className="w-4 h-4 inline mr-1" />
+                    Dizin
+                  </label>
+                  <div className="relative">
+                    <div className="flex items-center">
+                      <span className="text-sm text-muted-foreground bg-muted px-3 py-2 rounded-l-lg border border-r-0">
+                        /home/{user?.username}/
+                      </span>
+                      <input
+                        type="text"
+                        value={formData.directory}
+                        onChange={(e) => handleDirectoryInput(e.target.value)}
+                        onFocus={() => setShowSuggestions(directories.length > 0)}
+                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                        className="flex-1 px-3 py-2 border rounded-r-lg bg-background"
+                        placeholder="public_html"
+                      />
+                    </div>
+                    
+                    {/* Autocomplete Suggestions */}
+                    {showSuggestions && dirSuggestions.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
+                        {dirSuggestions.map((dir) => (
+                          <button
+                            key={dir}
+                            type="button"
+                            onClick={() => selectDirectory(dir)}
+                            className="w-full text-left px-3 py-2 hover:bg-muted flex items-center gap-2"
+                          >
+                            <Folder className="w-4 h-4 text-yellow-500" />
+                            {dir}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    FTP kullanıcısı sadece bu dizine erişebilir
+                    Dizin yoksa otomatik oluşturulur. FTP kullanıcısı sadece bu dizine erişebilir.
                   </p>
                 </div>
 
+                {/* Kota - cPanel Style */}
                 <div>
-                  <label className="block text-sm font-medium mb-1">Kota (MB)</label>
-                  <input
-                    type="number"
-                    value={formData.quota_mb}
-                    onChange={(e) => setFormData({ ...formData, quota_mb: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border rounded-lg bg-background"
-                    placeholder="0 = Sınırsız"
-                  />
+                  <label className="block text-sm font-medium mb-2">Kota</label>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        checked={unlimitedQuota}
+                        onChange={() => setUnlimitedQuota(true)}
+                        className="w-4 h-4"
+                      />
+                      <span>Sınırsız</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        checked={!unlimitedQuota}
+                        onChange={() => setUnlimitedQuota(false)}
+                        className="w-4 h-4"
+                      />
+                      <input
+                        type="number"
+                        value={formData.quota_mb}
+                        onChange={(e) => {
+                          setUnlimitedQuota(false);
+                          setFormData({ ...formData, quota_mb: parseInt(e.target.value) || 0 });
+                        }}
+                        className="w-24 px-3 py-1 border rounded-lg bg-background"
+                        placeholder="2000"
+                        disabled={unlimitedQuota}
+                      />
+                      <span className="text-sm text-muted-foreground">MB</span>
+                    </label>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 mt-6">
+              <div className="flex justify-end gap-2 mt-6 pt-4 border-t">
                 <Button variant="outline" onClick={() => setShowCreateModal(false)}>
                   İptal
                 </Button>
-                <Button onClick={handleCreate}>
-                  Oluştur
+                <Button onClick={handleCreate} className="bg-blue-600 hover:bg-blue-700">
+                  FTP Hesabı Oluştur
                 </Button>
               </div>
             </div>
