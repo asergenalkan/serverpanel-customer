@@ -146,6 +146,8 @@ export const sslAPI = {
   list: () => api.get('/ssl'),
   get: (domainId: number) => api.get(`/ssl/${domainId}`),
   issue: (domainId: number) => api.post(`/ssl/${domainId}/issue`),
+  issueFQDN: (data: { fqdn: string; domain_id: number; domain_type: string }) => 
+    api.post('/ssl/issue-fqdn', data),
   renew: (domainId: number) => api.post(`/ssl/${domainId}/renew`),
   revoke: (domainId: number) => api.delete(`/ssl/${domainId}`),
 };

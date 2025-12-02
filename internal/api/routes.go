@@ -91,6 +91,7 @@ func SetupRoutes(router fiber.Router, db *database.DB) {
 	protected.Get("/ssl", h.ListSSLCertificates)
 	protected.Get("/ssl/:id", h.GetSSLCertificate)
 	protected.Post("/ssl/:id/issue", h.IssueSSLCertificate)
+	protected.Post("/ssl/issue-fqdn", h.IssueSSLForFQDN)
 	protected.Post("/ssl/:id/renew", h.RenewSSLCertificate)
 	protected.Delete("/ssl/:id", h.RevokeSSLCertificate)
 

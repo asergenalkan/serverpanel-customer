@@ -81,6 +81,26 @@ export default function SSL() {
     }
   };
 
+  const handleIssueFQDN = async (fqdn: string, domainId: number, domainType: string) => {
+    setActionLoading(`issue-fqdn-${fqdn}`);
+    setError('');
+    setSuccess('');
+    
+    try {
+      const response = await sslAPI.issueFQDN({ fqdn, domain_id: domainId, domain_type: domainType });
+      if (response.data.success) {
+        setSuccess(`${fqdn} için SSL sertifikası başarıyla oluşturuldu!`);
+        fetchCertificates();
+      } else {
+        setError(response.data.error || 'SSL sertifikası oluşturulamadı');
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'SSL sertifikası oluşturulurken hata oluştu');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleRenew = async (domainId: number, domain: string) => {
     setActionLoading(`renew-${domainId}-${domain}`);
     setError('');
@@ -380,47 +400,63 @@ export default function SSL() {
                             {/* Actions */}
                             <td className="p-4 text-right">
                               <div className="flex items-center justify-end gap-2">
-                                {cert.domain_type === 'domain' && (
-                                  <>
-                                    {cert.status === 'none' ? (
+                                {cert.domain_type === 'domain' ? (
+                                  // Ana domain için butonlar
+                                  cert.status === 'none' ? (
+                                    <Button
+                                      onClick={() => handleIssue(cert.domain_id, cert.domain)}
+                                      disabled={isLoading}
+                                      size="sm"
+                                    >
+                                      {actionLoading === loadingKey ? (
+                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                      ) : (
+                                        <Plus className="h-4 w-4 mr-2" />
+                                      )}
+                                      SSL Al
+                                    </Button>
+                                  ) : (
+                                    <>
                                       <Button
-                                        onClick={() => handleIssue(cert.domain_id, cert.domain)}
+                                        onClick={() => handleRenew(cert.domain_id, cert.domain)}
                                         disabled={isLoading}
+                                        variant="outline"
                                         size="sm"
                                       >
-                                        {actionLoading === loadingKey ? (
-                                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                        {actionLoading === renewKey ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
                                         ) : (
-                                          <Plus className="h-4 w-4 mr-2" />
+                                          <RefreshCw className="h-4 w-4" />
                                         )}
-                                        SSL Al
                                       </Button>
-                                    ) : (
-                                      <>
-                                        <Button
-                                          onClick={() => handleRenew(cert.domain_id, cert.domain)}
-                                          disabled={isLoading}
-                                          variant="outline"
-                                          size="sm"
-                                        >
-                                          {actionLoading === renewKey ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                          ) : (
-                                            <RefreshCw className="h-4 w-4" />
-                                          )}
-                                        </Button>
-                                        <Button
-                                          onClick={() => handleRevoke(cert.domain_id, cert.domain)}
-                                          disabled={isLoading}
-                                          variant="outline"
-                                          size="sm"
-                                          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                      </>
-                                    )}
-                                  </>
+                                      <Button
+                                        onClick={() => handleRevoke(cert.domain_id, cert.domain)}
+                                        disabled={isLoading}
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </>
+                                  )
+                                ) : (
+                                  // Subdomain, www, mail için butonlar
+                                  cert.status === 'none' && (
+                                    <Button
+                                      onClick={() => handleIssueFQDN(cert.domain, cert.domain_id, cert.domain_type)}
+                                      disabled={actionLoading === `issue-fqdn-${cert.domain}`}
+                                      size="sm"
+                                      variant="outline"
+                                    >
+                                      {actionLoading === `issue-fqdn-${cert.domain}` ? (
+                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                      ) : (
+                                        <Plus className="h-4 w-4 mr-2" />
+                                      )}
+                                      SSL Al
+                                    </Button>
+                                  )
                                 )}
                               </div>
                             </td>

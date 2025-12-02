@@ -369,6 +369,113 @@ func (h *Handler) IssueSSLCertificate(c *fiber.Ctx) error {
 	})
 }
 
+// IssueSSLForFQDN issues SSL certificate for any FQDN (subdomain, mail, www, etc.)
+func (h *Handler) IssueSSLForFQDN(c *fiber.Ctx) error {
+	var req struct {
+		FQDN       string `json:"fqdn"`
+		DomainID   int64  `json:"domain_id"`
+		DomainType string `json:"domain_type"` // subdomain, www, mail
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Invalid request body",
+		})
+	}
+
+	if req.FQDN == "" || req.DomainID == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(models.APIResponse{
+			Success: false,
+			Error:   "FQDN and domain_id are required",
+		})
+	}
+
+	currentUserID := c.Locals("user_id").(int64)
+	role := c.Locals("role").(string)
+
+	// Get parent domain info for permission check
+	var parentDomain, username string
+	var ownerID int64
+	err := h.db.QueryRow(`
+		SELECT d.name, d.user_id, u.username 
+		FROM domains d 
+		JOIN users u ON d.user_id = u.id 
+		WHERE d.id = ?`, req.DomainID).Scan(&parentDomain, &ownerID, &username)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Parent domain not found",
+		})
+	}
+
+	// Check permission
+	if role != models.RoleAdmin && currentUserID != ownerID {
+		return c.Status(fiber.StatusForbidden).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Access denied",
+		})
+	}
+
+	// Determine webroot based on domain type
+	var webRoot string
+	if req.DomainType == "subdomain" {
+		// Check if subdomain exists in database
+		var subdomainDocRoot string
+		err := h.db.QueryRow("SELECT document_root FROM subdomains WHERE full_name = ?", req.FQDN).Scan(&subdomainDocRoot)
+		if err == nil && subdomainDocRoot != "" {
+			webRoot = subdomainDocRoot
+		} else {
+			webRoot = filepath.Join("/home", username, "public_html", req.FQDN)
+		}
+	} else {
+		// www or mail - use parent domain's webroot
+		webRoot = filepath.Join("/home", username, "public_html")
+	}
+
+	if _, err := os.Stat(webRoot); os.IsNotExist(err) {
+		webRoot = "/var/www/html"
+	}
+
+	// Get email
+	var email string
+	h.db.QueryRow("SELECT email FROM users WHERE id = ?", ownerID).Scan(&email)
+	if email == "" {
+		email = "admin@" + parentDomain
+	}
+
+	// Issue certificate for the FQDN
+	certInfo, err := h.issueCertificateForFQDN(req.FQDN, webRoot, email)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Failed to issue certificate: " + err.Error(),
+		})
+	}
+
+	// Configure SSL vhost for subdomain
+	if req.DomainType == "subdomain" {
+		h.configureSSLVhostForFQDN(req.FQDN, username, webRoot, certInfo)
+	}
+
+	return c.JSON(models.APIResponse{
+		Success: true,
+		Message: fmt.Sprintf("SSL certificate issued for %s", req.FQDN),
+		Data: SSLCertificate{
+			DomainID:   req.DomainID,
+			Domain:     req.FQDN,
+			DomainType: req.DomainType,
+			Issuer:     certInfo.Issuer,
+			Status:     "active",
+			ValidFrom:  certInfo.ValidFrom,
+			ValidUntil: certInfo.ValidUntil,
+			AutoRenew:  true,
+			CertPath:   certInfo.CertPath,
+			KeyPath:    certInfo.KeyPath,
+		},
+	})
+}
+
 // RenewSSLCertificate renews an existing certificate
 func (h *Handler) RenewSSLCertificate(c *fiber.Ctx) error {
 	domainID, err := strconv.ParseInt(c.Params("id"), 10, 64)
@@ -641,6 +748,77 @@ func (h *Handler) removeSSLVhost(domain, username string) error {
 
 	// Remove config file
 	os.Remove(vhostPath)
+
+	// Reload Apache
+	exec.Command("systemctl", "reload", "apache2").Run()
+
+	return nil
+}
+
+// issueCertificateForFQDN issues certificate for any FQDN (subdomain, www, mail)
+func (h *Handler) issueCertificateForFQDN(fqdn, webRoot, email string) (*certInfo, error) {
+	args := []string{
+		"certonly",
+		"--webroot",
+		"-w", webRoot,
+		"-d", fqdn,
+		"--email", email,
+		"--agree-tos",
+		"--non-interactive",
+	}
+
+	cmd := exec.Command("certbot", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", strings.TrimSpace(string(output)), err)
+	}
+
+	certPath := filepath.Join("/etc/letsencrypt/live", fqdn, "fullchain.pem")
+	keyPath := filepath.Join("/etc/letsencrypt/live", fqdn, "privkey.pem")
+
+	return &certInfo{
+		Issuer:     "Let's Encrypt",
+		ValidFrom:  time.Now(),
+		ValidUntil: time.Now().AddDate(0, 3, 0), // 90 days
+		CertPath:   certPath,
+		KeyPath:    keyPath,
+	}, nil
+}
+
+// configureSSLVhostForFQDN configures SSL vhost for subdomain
+func (h *Handler) configureSSLVhostForFQDN(fqdn, username, docRoot string, cert *certInfo) error {
+	vhostPath := filepath.Join("/etc/apache2/sites-available", fqdn+"-ssl.conf")
+	phpVersion := "8.1"
+
+	vhostContent := fmt.Sprintf(`<VirtualHost *:443>
+    ServerName %s
+    DocumentRoot %s
+
+    SSLEngine on
+    SSLCertificateFile %s
+    SSLCertificateKeyFile %s
+
+    <Directory %s>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    <FilesMatch \.php$>
+        SetHandler "proxy:unix:/run/php/php%s-fpm-%s.sock|fcgi://localhost"
+    </FilesMatch>
+
+    ErrorLog ${APACHE_LOG_DIR}/%s-ssl-error.log
+    CustomLog ${APACHE_LOG_DIR}/%s-ssl-access.log combined
+</VirtualHost>
+`, fqdn, docRoot, cert.CertPath, cert.KeyPath, docRoot, phpVersion, username, fqdn, fqdn)
+
+	if err := os.WriteFile(vhostPath, []byte(vhostContent), 0644); err != nil {
+		return err
+	}
+
+	// Enable site
+	exec.Command("a2ensite", fqdn+"-ssl").Run()
 
 	// Reload Apache
 	exec.Command("systemctl", "reload", "apache2").Run()
