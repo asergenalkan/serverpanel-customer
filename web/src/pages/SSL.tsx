@@ -369,9 +369,20 @@ export default function SSL() {
                                         ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
                                         : cert.domain_type === 'www'
                                           ? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
-                                          : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                                          : cert.domain_type === 'mail'
+                                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                                            : cert.domain_type === 'webmail'
+                                              ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
+                                              : cert.domain_type === 'ftp'
+                                                ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                                                : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
                                     }`}>
-                                      {cert.domain_type === 'subdomain' ? 'Subdomain' : cert.domain_type === 'www' ? 'WWW' : 'Mail'}
+                                      {cert.domain_type === 'subdomain' ? 'Subdomain' 
+                                        : cert.domain_type === 'www' ? 'WWW' 
+                                        : cert.domain_type === 'mail' ? 'Mail'
+                                        : cert.domain_type === 'webmail' ? 'Webmail'
+                                        : cert.domain_type === 'ftp' ? 'FTP'
+                                        : cert.domain_type}
                                     </span>
                                   )}
                                 </div>

@@ -90,6 +90,14 @@ func (h *Handler) ListSSLCertificates(c *fiber.Ctx) error {
 		// mail subdomain
 		mailCert := h.buildSSLCertificate(domain.ID, 0, "mail."+domain.Name, "mail", domain.Name)
 		certificates = append(certificates, mailCert)
+
+		// webmail subdomain
+		webmailCert := h.buildSSLCertificate(domain.ID, 0, "webmail."+domain.Name, "webmail", domain.Name)
+		certificates = append(certificates, webmailCert)
+
+		// ftp subdomain
+		ftpCert := h.buildSSLCertificate(domain.ID, 0, "ftp."+domain.Name, "ftp", domain.Name)
+		certificates = append(certificates, ftpCert)
 	}
 
 	// 3. Get all subdomains for this user
