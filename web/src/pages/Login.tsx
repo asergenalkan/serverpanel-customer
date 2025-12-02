@@ -34,79 +34,106 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 mb-4">
-            <Server className="w-8 h-8 text-white" />
+    <div className="min-h-screen flex flex-col bg-[var(--color-page-bg)] px-4 py-6">
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-full max-w-md space-y-6">
+          <div className="flex items-center justify-center flex-col gap-3 text-center">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-blue-600 shadow-sm">
+              <Server className="w-7 h-7 text-white" />
+            </div>
+            <div className="space-y-1">
+              <h1 className="text-2xl font-semibold tracking-tight">EticPanel</h1>
+              <p className="text-sm text-muted-foreground">
+                Hosting ve sunucu yönetiminiz için modern kontrol paneli
+              </p>
+            </div>
           </div>
-          <h1 className="text-3xl font-bold text-white">ServerPanel</h1>
-          <p className="text-blue-200 mt-2">Sunucu Yönetim Paneli</p>
-        </div>
 
-        {/* Login Card */}
-        <Card className="border-0 shadow-2xl bg-white/10 backdrop-blur-lg">
-          <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-2xl text-center text-white">Giriş Yap</CardTitle>
-            <CardDescription className="text-center text-blue-200">
-              Panele erişmek için giriş yapın
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+          <Card className="shadow-lg">
+            <CardHeader className="space-y-1 pb-4">
+              <CardTitle className="text-xl text-center">Panele Giriş Yap</CardTitle>
+              <CardDescription className="text-center">
+                Hesabınıza erişmek için bilgilerinizi girin
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <div className="p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-200 text-sm">
+                <div className="p-3 rounded-md border border-destructive/40 bg-destructive/5 text-destructive text-sm">
                   {error}
                 </div>
               )}
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-blue-100">Kullanıcı Adı</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
-                  <Input
-                    type="text"
-                    placeholder="admin"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-blue-300"
-                    required
-                  />
-                </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium flex items-center gap-1.5">
+                  <User className="w-4 h-4 text-muted-foreground" />
+                  Kullanıcı Adı
+                </label>
+                <Input
+                  type="text"
+                  placeholder="admin"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoComplete="username"
+                  required
+                />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-blue-100">Şifre</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-300" />
-                  <Input
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-blue-300"
-                    required
-                  />
-                </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium flex items-center gap-1.5">
+                  <Lock className="w-4 h-4 text-muted-foreground" />
+                  Şifre
+                </label>
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  required
+                />
               </div>
 
-              <Button
-                type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                isLoading={isLoading}
-              >
+              <Button type="submit" className="w-full" isLoading={isLoading}>
                 Giriş Yap
               </Button>
             </form>
 
-            <div className="mt-6 pt-6 border-t border-white/10">
-              <p className="text-xs text-center text-blue-300">
-                Varsayılan giriş: <span className="font-mono">admin / admin123</span>
+            <div className="mt-6 pt-4 border-t border-border">
+              <p className="text-xs text-center text-muted-foreground">
+                Varsayılan giriş bilgileri yalnızca demo amaçlıdır.
+              </p>
+              <p className="text-xs text-center text-muted-foreground mt-1">
+                <span className="font-mono font-medium">admin / admin123</span>
               </p>
             </div>
           </CardContent>
         </Card>
+      </div>
+      </div>
+
+      <div className="w-full max-w-5xl mx-auto mt-4 flex items-center justify-between text-xs text-muted-foreground">
+        <span>
+          © {new Date().getFullYear()} EticWeb
+        </span>
+        <div className="flex items-center gap-4">
+          <a
+            href="https://eticweb.com.tr"
+            target="_blank"
+            rel="noreferrer"
+            className="hover:text-foreground transition-colors"
+          >
+            Dokümantasyon
+          </a>
+          <a
+            href="https://eticweb.com.tr"
+            target="_blank"
+            rel="noreferrer"
+            className="hover:text-foreground transition-colors"
+          >
+            Destek
+          </a>
+        </div>
       </div>
     </div>
   );
