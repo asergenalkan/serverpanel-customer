@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/asergenalkan/serverpanel/internal/models"
 	"github.com/asergenalkan/serverpanel/internal/services/dns"
 	"github.com/gofiber/fiber/v2"
 )
@@ -43,12 +42,13 @@ var supportedRecordTypes = []string{"A", "AAAA", "CNAME", "MX", "TXT", "NS", "SR
 
 // ListDNSZones returns all DNS zones for the user
 func (h *Handler) ListDNSZones(c *fiber.Ctx) error {
-	user := c.Locals("user").(*models.User)
+	userID := c.Locals("user_id").(int64)
+	role := c.Locals("role").(string)
 
 	var query string
 	var args []interface{}
 
-	if user.Role == models.RoleAdmin {
+	if role == "admin" {
 		query = `
 			SELECT d.id, d.name, u.username
 			FROM domains d
@@ -62,7 +62,7 @@ func (h *Handler) ListDNSZones(c *fiber.Ctx) error {
 			JOIN users u ON d.user_id = u.id
 			WHERE d.user_id = ? AND d.active = 1
 			ORDER BY d.name`
-		args = append(args, user.ID)
+		args = append(args, userID)
 	}
 
 	rows, err := h.db.Query(query, args...)
@@ -91,7 +91,8 @@ func (h *Handler) ListDNSZones(c *fiber.Ctx) error {
 
 // GetDNSZone returns all DNS records for a domain
 func (h *Handler) GetDNSZone(c *fiber.Ctx) error {
-	user := c.Locals("user").(*models.User)
+	userID := c.Locals("user_id").(int64)
+	role := c.Locals("role").(string)
 	domainID, err := strconv.ParseInt(c.Params("id"), 10, 64)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Geçersiz domain ID"})
@@ -116,7 +117,7 @@ func (h *Handler) GetDNSZone(c *fiber.Ctx) error {
 	}
 
 	// Check permission
-	if user.Role != models.RoleAdmin && domain.UserID != user.ID {
+	if role != "admin" && domain.UserID != userID {
 		return c.Status(403).JSON(fiber.Map{"error": "Bu domain'e erişim yetkiniz yok"})
 	}
 
@@ -166,7 +167,8 @@ func (h *Handler) GetDNSZone(c *fiber.Ctx) error {
 
 // CreateDNSRecord creates a new DNS record
 func (h *Handler) CreateDNSRecord(c *fiber.Ctx) error {
-	user := c.Locals("user").(*models.User)
+	userID := c.Locals("user_id").(int64)
+	role := c.Locals("role").(string)
 
 	var req struct {
 		DomainID int64  `json:"domain_id"`
@@ -205,7 +207,7 @@ func (h *Handler) CreateDNSRecord(c *fiber.Ctx) error {
 	}
 
 	// Check permission
-	if user.Role != models.RoleAdmin && domain.UserID != user.ID {
+	if role != "admin" && domain.UserID != userID {
 		return c.Status(403).JSON(fiber.Map{"error": "Bu domain'e erişim yetkiniz yok"})
 	}
 
@@ -245,7 +247,8 @@ func (h *Handler) CreateDNSRecord(c *fiber.Ctx) error {
 
 // UpdateDNSRecord updates an existing DNS record
 func (h *Handler) UpdateDNSRecord(c *fiber.Ctx) error {
-	user := c.Locals("user").(*models.User)
+	userID := c.Locals("user_id").(int64)
+	role := c.Locals("role").(string)
 	recordID, err := strconv.ParseInt(c.Params("id"), 10, 64)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Geçersiz kayıt ID"})
@@ -285,7 +288,7 @@ func (h *Handler) UpdateDNSRecord(c *fiber.Ctx) error {
 	}
 
 	// Check permission
-	if user.Role != models.RoleAdmin && record.UserID != user.ID {
+	if role != "admin" && record.UserID != userID {
 		return c.Status(403).JSON(fiber.Map{"error": "Bu kayda erişim yetkiniz yok"})
 	}
 
@@ -326,7 +329,8 @@ func (h *Handler) UpdateDNSRecord(c *fiber.Ctx) error {
 
 // DeleteDNSRecord deletes a DNS record
 func (h *Handler) DeleteDNSRecord(c *fiber.Ctx) error {
-	user := c.Locals("user").(*models.User)
+	userID := c.Locals("user_id").(int64)
+	role := c.Locals("role").(string)
 	recordID, err := strconv.ParseInt(c.Params("id"), 10, 64)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Geçersiz kayıt ID"})
@@ -356,7 +360,7 @@ func (h *Handler) DeleteDNSRecord(c *fiber.Ctx) error {
 	}
 
 	// Check permission
-	if user.Role != models.RoleAdmin && record.UserID != user.ID {
+	if role != "admin" && record.UserID != userID {
 		return c.Status(403).JSON(fiber.Map{"error": "Bu kayda erişim yetkiniz yok"})
 	}
 
@@ -381,7 +385,8 @@ func (h *Handler) DeleteDNSRecord(c *fiber.Ctx) error {
 
 // ResetDNSZone resets DNS zone to default records
 func (h *Handler) ResetDNSZone(c *fiber.Ctx) error {
-	user := c.Locals("user").(*models.User)
+	userID := c.Locals("user_id").(int64)
+	role := c.Locals("role").(string)
 	domainID, err := strconv.ParseInt(c.Params("id"), 10, 64)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Geçersiz domain ID"})
@@ -406,7 +411,7 @@ func (h *Handler) ResetDNSZone(c *fiber.Ctx) error {
 	}
 
 	// Check permission
-	if user.Role != models.RoleAdmin && domain.UserID != user.ID {
+	if role != "admin" && domain.UserID != userID {
 		return c.Status(403).JSON(fiber.Map{"error": "Bu domain'e erişim yetkiniz yok"})
 	}
 
