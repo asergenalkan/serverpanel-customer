@@ -144,8 +144,8 @@ func checkPolicy(attrs map[string]string) string {
 	recipient := attrs["recipient"]
 	saslUsername := attrs["sasl_username"]
 
-	// If no SASL authentication, allow (external mail)
-	if saslUsername == "" {
+	// Skip if no sender (shouldn't happen)
+	if sender == "" {
 		return "DUNNO"
 	}
 
