@@ -37,7 +37,7 @@ Protokol:
 */
 
 const (
-	dbPath     = "/var/lib/serverpanel/panel.db"
+	dbPath     = "/root/.serverpanel/panel.db"
 	socketPath = "/var/spool/postfix/private/policy"
 	logPath    = "/var/log/serverpanel/policy-daemon.log"
 )

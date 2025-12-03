@@ -24,7 +24,7 @@ Systemd Service:
 */
 
 const (
-	dbPath        = "/var/lib/serverpanel/panel.db"
+	dbPath        = "/root/.serverpanel/panel.db"
 	logPath       = "/var/log/serverpanel/queue-processor.log"
 	checkInterval = 1 * time.Minute
 )
