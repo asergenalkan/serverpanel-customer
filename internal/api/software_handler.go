@@ -796,14 +796,20 @@ func (h *Handler) UninstallSoftware(c *fiber.Ctx) error {
 		exec.Command("bash", "-c", preRemoveCmd).Run()
 	}
 
-	// Remove package
-	cmd := exec.Command("bash", "-c", fmt.Sprintf("DEBIAN_FRONTEND=noninteractive apt-get remove -y %s", packageToRemove))
+	// Remove package with purge (removes config files too)
+	cmd := exec.Command("bash", "-c", fmt.Sprintf("DEBIAN_FRONTEND=noninteractive apt-get purge -y %s && apt-get autoremove -y", packageToRemove))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(models.APIResponse{
 			Success: false,
 			Error:   fmt.Sprintf("Paket kaldırma başarısız: %s", string(output)),
 		})
+	}
+
+	// Clean up data directories for certain packages
+	switch req.Package {
+	case "clamav":
+		exec.Command("rm", "-rf", "/var/lib/clamav").Run()
 	}
 
 	return c.JSON(models.APIResponse{
