@@ -507,20 +507,79 @@ func (h *Handler) installSoftwareWithLogs(taskID, packageName string) (bool, err
 	taskManager.addLog(taskID, fmt.Sprintf("📦 Paket: %s", packageName))
 	taskManager.addLog(taskID, "")
 
-	err := RunCommandWithLogs(taskID, "bash", "-c",
-		fmt.Sprintf("DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y %s", packageName))
+	// Special handling for certain packages
+	packageToInstall := packageName
+	postInstallCmd := ""
 
-	return err == nil, err
+	switch packageName {
+	case "clamav":
+		// ClamAV needs daemon package too
+		packageToInstall = "clamav clamav-daemon"
+		postInstallCmd = "systemctl enable clamav-daemon && systemctl start clamav-daemon"
+	case "spamassassin":
+		postInstallCmd = "systemctl enable spamassassin && systemctl start spamassassin"
+	case "fail2ban":
+		postInstallCmd = "systemctl enable fail2ban && systemctl start fail2ban"
+	}
+
+	err := RunCommandWithLogs(taskID, "bash", "-c",
+		fmt.Sprintf("DEBIAN_FRONTEND=noninteractive apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y %s", packageToInstall))
+
+	if err != nil {
+		return false, err
+	}
+
+	// Run post-install commands if any
+	if postInstallCmd != "" {
+		taskManager.addLog(taskID, "")
+		taskManager.addLog(taskID, "🔧 Servis yapılandırılıyor...")
+		exec.Command("bash", "-c", postInstallCmd).Run()
+	}
+
+	return true, nil
 }
 
 func (h *Handler) uninstallSoftwareWithLogs(taskID, packageName string) (bool, error) {
 	taskManager.addLog(taskID, fmt.Sprintf("🗑️ Paket kaldırılıyor: %s", packageName))
 	taskManager.addLog(taskID, "")
 
-	err := RunCommandWithLogs(taskID, "bash", "-c",
-		fmt.Sprintf("DEBIAN_FRONTEND=noninteractive apt-get remove -y %s", packageName))
+	// Special handling for certain packages
+	packageToRemove := packageName
+	preRemoveCmd := ""
 
-	return err == nil, err
+	switch packageName {
+	case "clamav":
+		// ClamAV has daemon package too
+		packageToRemove = "clamav clamav-daemon clamav-freshclam"
+		preRemoveCmd = "systemctl stop clamav-daemon clamav-freshclam 2>/dev/null; systemctl disable clamav-daemon 2>/dev/null"
+	case "spamassassin":
+		preRemoveCmd = "systemctl stop spamassassin 2>/dev/null; systemctl disable spamassassin 2>/dev/null"
+	case "fail2ban":
+		preRemoveCmd = "systemctl stop fail2ban 2>/dev/null; systemctl disable fail2ban 2>/dev/null"
+	}
+
+	// Run pre-remove commands if any
+	if preRemoveCmd != "" {
+		taskManager.addLog(taskID, "🛑 Servisler durduruluyor...")
+		exec.Command("bash", "-c", preRemoveCmd).Run()
+		taskManager.addLog(taskID, "")
+	}
+
+	err := RunCommandWithLogs(taskID, "bash", "-c",
+		fmt.Sprintf("DEBIAN_FRONTEND=noninteractive apt-get purge -y %s && apt-get autoremove -y", packageToRemove))
+
+	if err != nil {
+		return false, err
+	}
+
+	// Clean up data directories for certain packages
+	switch packageName {
+	case "clamav":
+		exec.Command("rm", "-rf", "/var/lib/clamav").Run()
+		taskManager.addLog(taskID, "🧹 Data dosyaları temizlendi")
+	}
+
+	return true, nil
 }
 
 // GetTaskStatus returns the status of a task
