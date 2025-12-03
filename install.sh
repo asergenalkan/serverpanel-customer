@@ -1646,16 +1646,68 @@ migrate_database() {
         log_progress "email_send_log tablosu oluşturuluyor"
         sqlite3 "$DB_PATH" "CREATE TABLE IF NOT EXISTS email_send_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email_account_id INTEGER NOT NULL,
+            email_account_id INTEGER,
+            user_id INTEGER,
+            sender TEXT,
             recipient TEXT NOT NULL,
             subject TEXT,
+            message_id TEXT,
+            size_bytes INTEGER DEFAULT 0,
             sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            status TEXT DEFAULT 'sent',
-            FOREIGN KEY (email_account_id) REFERENCES email_accounts(id) ON DELETE CASCADE
+            status TEXT DEFAULT 'sent'
         );"
+        sqlite3 "$DB_PATH" "CREATE INDEX IF NOT EXISTS idx_email_send_log_user_id ON email_send_log(user_id);"
+        sqlite3 "$DB_PATH" "CREATE INDEX IF NOT EXISTS idx_email_send_log_sent_at ON email_send_log(sent_at);"
         log_done "email_send_log tablosu oluşturuldu"
     else
-        log_info "email_send_log tablosu mevcut"
+        # Mevcut tabloya user_id sütunu ekle (eski kurulumlar için)
+        if ! sqlite3 "$DB_PATH" "PRAGMA table_info(email_send_log);" | grep -q "user_id"; then
+            log_progress "email_send_log tablosu güncelleniyor"
+            sqlite3 "$DB_PATH" "ALTER TABLE email_send_log ADD COLUMN user_id INTEGER;" 2>/dev/null || true
+            sqlite3 "$DB_PATH" "ALTER TABLE email_send_log ADD COLUMN sender TEXT;" 2>/dev/null || true
+            sqlite3 "$DB_PATH" "ALTER TABLE email_send_log ADD COLUMN message_id TEXT;" 2>/dev/null || true
+            sqlite3 "$DB_PATH" "ALTER TABLE email_send_log ADD COLUMN size_bytes INTEGER DEFAULT 0;" 2>/dev/null || true
+            sqlite3 "$DB_PATH" "CREATE INDEX IF NOT EXISTS idx_email_send_log_user_id ON email_send_log(user_id);" 2>/dev/null || true
+            sqlite3 "$DB_PATH" "CREATE INDEX IF NOT EXISTS idx_email_send_log_sent_at ON email_send_log(sent_at);" 2>/dev/null || true
+            log_done "email_send_log tablosu güncellendi"
+        else
+            log_info "email_send_log tablosu mevcut"
+        fi
+    fi
+    
+    # mail_queue tablosu var mı kontrol et
+    if ! sqlite3 "$DB_PATH" ".tables" | grep -q "mail_queue"; then
+        log_progress "mail_queue tablosu oluşturuluyor"
+        sqlite3 "$DB_PATH" "CREATE TABLE IF NOT EXISTS mail_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            sender TEXT NOT NULL,
+            recipient TEXT NOT NULL,
+            subject TEXT,
+            body TEXT,
+            headers TEXT,
+            priority INTEGER DEFAULT 5,
+            retry_count INTEGER DEFAULT 0,
+            max_retries INTEGER DEFAULT 3,
+            scheduled_at DATETIME,
+            status TEXT DEFAULT 'pending',
+            error_message TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );"
+        sqlite3 "$DB_PATH" "CREATE INDEX IF NOT EXISTS idx_mail_queue_user_id ON mail_queue(user_id);"
+        sqlite3 "$DB_PATH" "CREATE INDEX IF NOT EXISTS idx_mail_queue_status ON mail_queue(status);"
+        log_done "mail_queue tablosu oluşturuldu"
+    else
+        log_info "mail_queue tablosu mevcut"
+    fi
+    
+    # packages tablosuna mail limitleri ekle
+    if ! sqlite3 "$DB_PATH" "PRAGMA table_info(packages);" | grep -q "max_emails_per_hour"; then
+        log_progress "packages tablosuna mail limitleri ekleniyor"
+        sqlite3 "$DB_PATH" "ALTER TABLE packages ADD COLUMN max_emails_per_hour INTEGER DEFAULT 100;" 2>/dev/null || true
+        sqlite3 "$DB_PATH" "ALTER TABLE packages ADD COLUMN max_emails_per_day INTEGER DEFAULT 500;" 2>/dev/null || true
+        log_done "packages tablosu güncellendi"
     fi
     
     log_info "Veritabanı migrasyonu tamamlandı ✓"
@@ -1734,31 +1786,32 @@ CRONEOF
 configure_mail_queue() {
     log_step "Mail Queue Daemon Yapılandırılıyor"
     
-    # Queue processor binary'si derleniyor
-    log_progress "Queue processor derleniyor"
-    if [[ -d "${INSTALL_DIR}/src" ]]; then
-        cd "${INSTALL_DIR}/src"
-        
-        # Queue processor derle
-        if [[ -d "cmd/queue-processor" ]]; then
-            go build -o "${INSTALL_DIR}/bin/queue-processor" ./cmd/queue-processor 2>/dev/null
-            if [[ -f "${INSTALL_DIR}/bin/queue-processor" ]]; then
-                chmod +x "${INSTALL_DIR}/bin/queue-processor"
-                log_done "Queue processor derlendi"
-            else
-                log_warn "Queue processor derlenemedi"
-            fi
+    # Queue processor ve policy daemon binary'leri derleniyor
+    log_progress "Mail daemon'ları derleniyor"
+    
+    cd "${INSTALL_DIR}"
+    mkdir -p "${INSTALL_DIR}/bin"
+    export PATH=$PATH:/usr/local/go/bin
+    
+    # Queue processor derle
+    if [[ -d "${INSTALL_DIR}/cmd/queue-processor" ]]; then
+        /usr/local/go/bin/go build -o "${INSTALL_DIR}/bin/queue-processor" ./cmd/queue-processor 2>/dev/null
+        if [[ -f "${INSTALL_DIR}/bin/queue-processor" ]]; then
+            chmod +x "${INSTALL_DIR}/bin/queue-processor"
+            log_done "Queue processor derlendi"
+        else
+            log_warn "Queue processor derlenemedi"
         fi
-        
-        # Policy daemon derle
-        if [[ -d "cmd/policy-daemon" ]]; then
-            go build -o "${INSTALL_DIR}/bin/policy-daemon" ./cmd/policy-daemon 2>/dev/null
-            if [[ -f "${INSTALL_DIR}/bin/policy-daemon" ]]; then
-                chmod +x "${INSTALL_DIR}/bin/policy-daemon"
-                log_done "Policy daemon derlendi"
-            else
-                log_warn "Policy daemon derlenemedi"
-            fi
+    fi
+    
+    # Policy daemon derle
+    if [[ -d "${INSTALL_DIR}/cmd/policy-daemon" ]]; then
+        /usr/local/go/bin/go build -o "${INSTALL_DIR}/bin/policy-daemon" ./cmd/policy-daemon 2>/dev/null
+        if [[ -f "${INSTALL_DIR}/bin/policy-daemon" ]]; then
+            chmod +x "${INSTALL_DIR}/bin/policy-daemon"
+            log_done "Policy daemon derlendi"
+        else
+            log_warn "Policy daemon derlenemedi"
         fi
     fi
     
@@ -1795,15 +1848,9 @@ POLICYEOF
         log_done "Policy daemon Postfix'e eklendi"
     fi
     
-    # Postfix main.cf'e policy check ekle
+    # Postfix main.cf'e policy check ekle (sender restrictions - giden mailler için)
     if ! grep -q "check_policy_service" /etc/postfix/main.cf 2>/dev/null; then
-        # Mevcut smtpd_recipient_restrictions'ı al ve policy ekle
-        local current_restrictions=$(postconf -h smtpd_recipient_restrictions 2>/dev/null)
-        if [[ -n "$current_restrictions" ]]; then
-            postconf -e "smtpd_recipient_restrictions = $current_restrictions, check_policy_service unix:private/policy"
-        else
-            postconf -e "smtpd_recipient_restrictions = permit_mynetworks, permit_sasl_authenticated, check_policy_service unix:private/policy, reject_unauth_destination"
-        fi
+        postconf -e "smtpd_sender_restrictions = permit_mynetworks, permit_sasl_authenticated, check_policy_service unix:private/policy"
         log_done "Policy check Postfix'e eklendi"
     fi
     
