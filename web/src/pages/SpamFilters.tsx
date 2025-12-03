@@ -173,8 +173,8 @@ const SpamFiltersPage: React.FC = () => {
         <div className="flex items-center space-x-3">
           <Shield className="w-8 h-8 text-orange-500" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Spam Filtreleri</h1>
-            <p className="text-gray-600">SpamAssassin ve ClamAV ayarları</p>
+            <h1 className="text-2xl font-bold">Spam Filtreleri</h1>
+            <p className="text-muted-foreground">SpamAssassin ve ClamAV ayarları</p>
           </div>
         </div>
         <button
@@ -193,45 +193,45 @@ const SpamFiltersPage: React.FC = () => {
 
       {/* Message */}
       {message && (
-        <div className={`p-4 rounded-lg ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+        <div className={`p-4 rounded-lg ${message.type === 'success' ? 'bg-green-500/10 text-green-600' : 'bg-destructive/10 text-destructive'}`}>
           {message.text}
         </div>
       )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="bg-card rounded-lg border border-border p-4">
           <div className="flex items-center space-x-3">
             <Mail className="w-8 h-8 text-blue-500" />
             <div>
-              <p className="text-sm text-gray-500">Taranan Mail</p>
+              <p className="text-sm text-muted-foreground">Taranan Mail</p>
               <p className="text-2xl font-bold">{stats.total_scanned}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="bg-card rounded-lg border border-border p-4">
           <div className="flex items-center space-x-3">
             <AlertTriangle className="w-8 h-8 text-yellow-500" />
             <div>
-              <p className="text-sm text-gray-500">Spam Tespit</p>
+              <p className="text-sm text-muted-foreground">Spam Tespit</p>
               <p className="text-2xl font-bold">{stats.spam_detected}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="bg-card rounded-lg border border-border p-4">
           <div className="flex items-center space-x-3">
             <Bug className="w-8 h-8 text-red-500" />
             <div>
-              <p className="text-sm text-gray-500">Virüs Tespit</p>
+              <p className="text-sm text-muted-foreground">Virüs Tespit</p>
               <p className="text-2xl font-bold">{stats.viruses_detected}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="bg-card rounded-lg border border-border p-4">
           <div className="flex items-center space-x-3">
             <Filter className="w-8 h-8 text-orange-500" />
             <div>
-              <p className="text-sm text-gray-500">Son 24 Saat</p>
+              <p className="text-sm text-muted-foreground">Son 24 Saat</p>
               <p className="text-2xl font-bold">{stats.last_24h_spam}</p>
             </div>
           </div>
@@ -239,8 +239,8 @@ const SpamFiltersPage: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="border-b">
+      <div className="bg-card rounded-lg border border-border">
+        <div className="border-b border-border">
           <nav className="flex -mb-px">
             {[
               { id: 'spam', label: 'Spam Ayarları', icon: Mail },
@@ -253,8 +253,8 @@ const SpamFiltersPage: React.FC = () => {
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`flex items-center space-x-2 px-6 py-4 border-b-2 font-medium text-sm ${
                   activeTab === tab.id
-                    ? 'border-orange-500 text-orange-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-orange-500 text-orange-500'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                 }`}
               >
                 <tab.icon className="w-4 h-4" />
@@ -268,10 +268,10 @@ const SpamFiltersPage: React.FC = () => {
           {/* Spam Settings Tab */}
           {activeTab === 'spam' && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                 <div>
                   <h3 className="font-medium">SpamAssassin</h3>
-                  <p className="text-sm text-gray-500">Spam filtrelemeyi etkinleştir</p>
+                  <p className="text-sm text-muted-foreground">Spam filtrelemeyi etkinleştir</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -280,12 +280,12 @@ const SpamFiltersPage: React.FC = () => {
                     onChange={(e) => setSettings({ ...settings, enabled: e.target.checked })}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                  <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
                 </label>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2">
                   Spam Eşik Puanı: {settings.spam_score}
                 </label>
                 <input
@@ -295,18 +295,18 @@ const SpamFiltersPage: React.FC = () => {
                   step="0.5"
                   value={settings.spam_score}
                   onChange={(e) => setSettings({ ...settings, spam_score: parseFloat(e.target.value) })}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-orange-500"
                 />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <div className="flex justify-between text-xs text-muted-foreground mt-1">
                   <span>1 (Çok hassas)</span>
                   <span>10 (Az hassas)</span>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                 <div>
                   <h3 className="font-medium">Spam Klasörüne Taşı</h3>
-                  <p className="text-sm text-gray-500">Spam olarak işaretlenen mailleri Junk klasörüne taşı</p>
+                  <p className="text-sm text-muted-foreground">Spam olarak işaretlenen mailleri Junk klasörüne taşı</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -315,14 +315,14 @@ const SpamFiltersPage: React.FC = () => {
                     onChange={(e) => setSettings({ ...settings, spam_folder: e.target.checked })}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                  <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
                 </label>
               </div>
 
-              <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg">
+              <div className="flex items-center justify-between p-4 bg-destructive/10 rounded-lg">
                 <div>
-                  <h3 className="font-medium text-red-700">Otomatik Sil</h3>
-                  <p className="text-sm text-red-600">Yüksek puanlı spamları otomatik sil (dikkatli kullanın)</p>
+                  <h3 className="font-medium text-destructive">Otomatik Sil</h3>
+                  <p className="text-sm text-destructive/80">Yüksek puanlı spamları otomatik sil (dikkatli kullanın)</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -331,13 +331,13 @@ const SpamFiltersPage: React.FC = () => {
                     onChange={(e) => setSettings({ ...settings, auto_delete: e.target.checked })}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
+                  <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
                 </label>
               </div>
 
               {settings.auto_delete && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium mb-2">
                     Otomatik Silme Eşiği: {settings.auto_delete_score}
                   </label>
                   <input
@@ -347,7 +347,7 @@ const SpamFiltersPage: React.FC = () => {
                     step="1"
                     value={settings.auto_delete_score}
                     onChange={(e) => setSettings({ ...settings, auto_delete_score: parseInt(e.target.value) })}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-red-500"
                   />
                 </div>
               )}
@@ -357,13 +357,13 @@ const SpamFiltersPage: React.FC = () => {
           {/* Antivirus Tab */}
           {activeTab === 'antivirus' && (
             <div className="space-y-6">
-              <div className={`p-6 rounded-lg ${antivirusStatus.clamav_running ? 'bg-green-50' : 'bg-red-50'}`}>
+              <div className={`p-6 rounded-lg ${antivirusStatus.clamav_running ? 'bg-green-500/10' : 'bg-destructive/10'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
-                    <Bug className={`w-12 h-12 ${antivirusStatus.clamav_running ? 'text-green-500' : 'text-red-500'}`} />
+                    <Bug className={`w-12 h-12 ${antivirusStatus.clamav_running ? 'text-green-500' : 'text-destructive'}`} />
                     <div>
                       <h3 className="text-lg font-medium">ClamAV Antivirüs</h3>
-                      <p className={`text-sm ${antivirusStatus.clamav_running ? 'text-green-600' : 'text-red-600'}`}>
+                      <p className={`text-sm ${antivirusStatus.clamav_running ? 'text-green-600' : 'text-destructive'}`}>
                         {antivirusStatus.clamav_installed 
                           ? (antivirusStatus.clamav_running ? 'Çalışıyor' : 'Durduruldu')
                           : 'Kurulu Değil'}
@@ -384,20 +384,20 @@ const SpamFiltersPage: React.FC = () => {
 
               {antivirusStatus.clamav_installed && (
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-500">Virüs DB Sürümü</p>
+                  <div className="p-4 bg-muted/50 rounded-lg">
+                    <p className="text-sm text-muted-foreground">Virüs DB Sürümü</p>
                     <p className="text-lg font-medium">{antivirusStatus.virus_db_version || 'Bilinmiyor'}</p>
                   </div>
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-500">Son Güncelleme</p>
+                  <div className="p-4 bg-muted/50 rounded-lg">
+                    <p className="text-sm text-muted-foreground">Son Güncelleme</p>
                     <p className="text-lg font-medium">{antivirusStatus.last_update || 'Bilinmiyor'}</p>
                   </div>
                 </div>
               )}
 
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <h4 className="font-medium text-blue-700 mb-2">ClamAV Özellikleri</h4>
-                <ul className="text-sm text-blue-600 space-y-1">
+              <div className="p-4 bg-blue-500/10 rounded-lg">
+                <h4 className="font-medium text-blue-500 mb-2">ClamAV Özellikleri</h4>
+                <ul className="text-sm text-blue-400 space-y-1">
                   <li>• Gelen mail eklerini otomatik tarar</li>
                   <li>• Virüslü mailleri reddeder</li>
                   <li>• Günlük otomatik veritabanı güncellemesi</li>
@@ -416,7 +416,7 @@ const SpamFiltersPage: React.FC = () => {
                   value={newWhitelist}
                   onChange={(e) => setNewWhitelist(e.target.value)}
                   placeholder="email@example.com veya *@domain.com"
-                  className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  className="flex-1 px-4 py-2 border border-border rounded-lg bg-background focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   onKeyPress={(e) => e.key === 'Enter' && addToList('whitelist')}
                 />
                 <button
@@ -428,17 +428,17 @@ const SpamFiltersPage: React.FC = () => {
                 </button>
               </div>
 
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 Beyaz listedeki adreslerden gelen mailler spam kontrolünden geçmez.
               </p>
 
               <div className="space-y-2">
                 {settings.whitelist.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">Beyaz liste boş</p>
+                  <p className="text-muted-foreground text-center py-8">Beyaz liste boş</p>
                 ) : (
                   settings.whitelist.map((item, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                      <span className="text-green-700">{item}</span>
+                    <div key={index} className="flex items-center justify-between p-3 bg-green-500/10 rounded-lg">
+                      <span className="text-green-600">{item}</span>
                       <button
                         onClick={() => removeFromList('whitelist', item)}
                         className="text-red-500 hover:text-red-700"
@@ -461,7 +461,7 @@ const SpamFiltersPage: React.FC = () => {
                   value={newBlacklist}
                   onChange={(e) => setNewBlacklist(e.target.value)}
                   placeholder="email@example.com veya *@domain.com"
-                  className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  className="flex-1 px-4 py-2 border border-border rounded-lg bg-background focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   onKeyPress={(e) => e.key === 'Enter' && addToList('blacklist')}
                 />
                 <button
@@ -473,17 +473,17 @@ const SpamFiltersPage: React.FC = () => {
                 </button>
               </div>
 
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 Kara listedeki adreslerden gelen mailler otomatik olarak reddedilir.
               </p>
 
               <div className="space-y-2">
                 {settings.blacklist.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">Kara liste boş</p>
+                  <p className="text-muted-foreground text-center py-8">Kara liste boş</p>
                 ) : (
                   settings.blacklist.map((item, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                      <span className="text-red-700">{item}</span>
+                    <div key={index} className="flex items-center justify-between p-3 bg-destructive/10 rounded-lg">
+                      <span className="text-destructive">{item}</span>
                       <button
                         onClick={() => removeFromList('blacklist', item)}
                         className="text-red-500 hover:text-red-700"
