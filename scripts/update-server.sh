@@ -134,6 +134,25 @@ if [[ -f "$DB_PATH" ]]; then
     sqlite3 "$DB_PATH" "CREATE INDEX IF NOT EXISTS idx_mail_queue_user_id ON mail_queue(user_id);" 2>/dev/null || true
     sqlite3 "$DB_PATH" "CREATE INDEX IF NOT EXISTS idx_mail_queue_status ON mail_queue(status);" 2>/dev/null || true
     
+    # spam_settings tablosu var mı?
+    if ! sqlite3 "$DB_PATH" ".tables" | grep -q "spam_settings"; then
+        echo -e "${YELLOW}  spam_settings tablosu oluşturuluyor...${NC}"
+        sqlite3 "$DB_PATH" "CREATE TABLE IF NOT EXISTS spam_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL UNIQUE,
+            enabled INTEGER DEFAULT 1,
+            spam_score REAL DEFAULT 5.0,
+            auto_delete INTEGER DEFAULT 0,
+            auto_delete_score REAL DEFAULT 10.0,
+            spam_folder INTEGER DEFAULT 1,
+            whitelist TEXT DEFAULT '[]',
+            blacklist TEXT DEFAULT '[]',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );"
+    fi
+    
     echo -e "${GREEN}✓ Veritabanı güncellendi${NC}"
 else
     echo -e "${GREEN}✓ Yeni kurulum, migration gerekli değil${NC}"

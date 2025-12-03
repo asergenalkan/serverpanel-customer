@@ -21,6 +21,7 @@ import TaskQueue from '@/pages/server/TaskQueue';
 import SoftwareManager from '@/pages/SoftwareManager';
 import ServerSettings from '@/pages/ServerSettings';
 import ServerFeatures from '@/pages/ServerFeatures';
+import SpamFilters from '@/pages/SpamFilters';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -241,6 +242,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <ServerFeatures />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/spam-filters"
+        element={
+          <ProtectedRoute>
+            <SpamFilters />
           </ProtectedRoute>
         }
       />

@@ -46,6 +46,7 @@ const userMenuItems = [
   { icon: Code, label: 'PHP Ayarları', href: '/php' },
   { icon: Globe2, label: 'DNS Zone Editor', href: '/dns' },
   { icon: Mail, label: 'E-posta', href: '/email' },
+  { icon: Shield, label: 'Spam Filtreleri', href: '/spam-filters' },
   { icon: Server, label: 'Sunucu Özellikleri', href: '/server/features' },
   { icon: HardDrive, label: 'Backup', href: '/backup', disabled: true },
   { icon: Clock, label: 'Cron Jobs', href: '/cron', disabled: true },
@@ -63,6 +64,7 @@ const adminMenuItems = [
   { icon: Code, label: 'PHP Ayarları', href: '/php' },
   { icon: Globe2, label: 'DNS Zone Editor', href: '/dns' },
   { icon: Mail, label: 'E-posta', href: '/email' },
+  { icon: Shield, label: 'Spam Filtreleri', href: '/spam-filters' },
   { icon: Package, label: 'Paketler', href: '/packages' },
   { icon: Settings, label: 'Sunucu Ayarları', href: '/settings/server' },
 ];

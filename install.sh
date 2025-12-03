@@ -1710,6 +1710,28 @@ migrate_database() {
         log_done "packages tablosu güncellendi"
     fi
     
+    # spam_settings tablosu var mı kontrol et
+    if ! sqlite3 "$DB_PATH" ".tables" | grep -q "spam_settings"; then
+        log_progress "spam_settings tablosu oluşturuluyor"
+        sqlite3 "$DB_PATH" "CREATE TABLE IF NOT EXISTS spam_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL UNIQUE,
+            enabled INTEGER DEFAULT 1,
+            spam_score REAL DEFAULT 5.0,
+            auto_delete INTEGER DEFAULT 0,
+            auto_delete_score REAL DEFAULT 10.0,
+            spam_folder INTEGER DEFAULT 1,
+            whitelist TEXT DEFAULT '[]',
+            blacklist TEXT DEFAULT '[]',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );"
+        log_done "spam_settings tablosu oluşturuldu"
+    else
+        log_info "spam_settings tablosu mevcut"
+    fi
+    
     log_info "Veritabanı migrasyonu tamamlandı ✓"
 }
 

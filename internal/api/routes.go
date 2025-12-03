@@ -196,5 +196,12 @@ func SetupRoutes(router fiber.Router, db *database.DB) {
 	protected.Post("/tasks/start", admin, h.StartInstallTask)
 	protected.Get("/tasks/:task_id", admin, h.GetTaskStatus)
 
+	// Spam Filters (all authenticated users)
+	protected.Get("/spam/settings", h.GetSpamSettings)
+	protected.Put("/spam/settings", h.UpdateSpamSettings)
+	protected.Post("/spam/update-clamav", admin, h.UpdateClamAV)
+	protected.Get("/spam/global", admin, h.GetGlobalSpamSettings)
+	protected.Post("/spam/toggle-service", admin, h.ToggleSpamService)
+
 	// Note: WebSocket route is defined in main.go to avoid SPA fallback conflict
 }
