@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import LoadingAnimation from '@/components/LoadingAnimation';
 import { Button } from '@/components/ui/Button';
-import axios from 'axios';
+import api from '@/lib/api';
 import { Terminal, RefreshCw, Search } from 'lucide-react';
 
 interface SimpleProcess {
@@ -25,7 +25,7 @@ export default function RunningProcesses() {
 
   const fetchProcesses = async () => {
     try {
-      const response = await axios.get('/api/v1/system/running-processes');
+      const response = await api.get('/system/running-processes');
       if (response.data.success) {
         setProcesses(response.data.data || []);
       }

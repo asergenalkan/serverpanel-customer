@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import LoadingAnimation from '@/components/LoadingAnimation';
 import { Button } from '@/components/ui/Button';
-import axios from 'axios';
+import api from '@/lib/api';
 import { Skull, Save, Plus, X, AlertTriangle } from 'lucide-react';
 
 interface BackgroundKillerSettings {
@@ -28,7 +28,7 @@ export default function BackgroundKiller() {
 
   const fetchSettings = async () => {
     try {
-      const response = await axios.get('/api/v1/system/background-killer');
+      const response = await api.get('/system/background-killer');
       if (response.data.success) {
         setSettings(response.data.data);
       }
@@ -45,7 +45,7 @@ export default function BackgroundKiller() {
     setSuccess('');
 
     try {
-      const response = await axios.post('/api/v1/system/background-killer', settings);
+      const response = await api.post('/system/background-killer', settings);
       if (response.data.success) {
         setSuccess('Ayarlar başarıyla kaydedildi');
       }
@@ -137,8 +137,8 @@ export default function BackgroundKiller() {
             <div>
               <h3 className="font-medium text-yellow-600">Dikkat</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                WHM'yi aşağıdaki işlemlerden herhangi birini bulduğunda sonlandıracak ve size bir e-posta gönderecek şekilde yapılandırabilirsiniz. 
-                Kötü niyetli kullanıcılar, shell hesaplarında IRC bouncer çalıştırabilir. WHM, bouncer "pine" gibi zararsız görünen bir şeye yeniden adlandırılsa bile bu işlemleri doğru şekilde algılar.
+                ServerPanel'i aşağıdaki işlemlerden herhangi birini bulduğunda sonlandıracak ve size bir e-posta gönderecek şekilde yapılandırabilirsiniz. 
+                Kötü niyetli kullanıcılar, shell hesaplarında IRC bouncer çalıştırabilir. ServerPanel, bouncer "pine" gibi zararsız görünen bir şeye yeniden adlandırılsa bile bu işlemleri doğru şekilde algılar.
               </p>
             </div>
           </div>

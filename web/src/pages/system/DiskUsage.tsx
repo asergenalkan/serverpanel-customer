@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import LoadingAnimation from '@/components/LoadingAnimation';
 import { Button } from '@/components/ui/Button';
-import axios from 'axios';
+import api from '@/lib/api';
 import { HardDrive, RefreshCw } from 'lucide-react';
 
 interface DiskInfo {
@@ -35,7 +35,7 @@ export default function DiskUsage() {
 
   const fetchDiskUsage = async () => {
     try {
-      const response = await axios.get('/api/v1/system/disk-usage');
+      const response = await api.get('/system/disk-usage');
       if (response.data.success) {
         setDisks(response.data.data?.disks || []);
         setIoStats(response.data.data?.io_stats || []);

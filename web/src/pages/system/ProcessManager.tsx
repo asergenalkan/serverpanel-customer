@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import LoadingAnimation from '@/components/LoadingAnimation';
 import { Button } from '@/components/ui/Button';
-import axios from 'axios';
+import api from '@/lib/api';
 import {
   Activity,
   RefreshCw,
@@ -47,7 +47,7 @@ export default function ProcessManager() {
 
   const fetchProcesses = async () => {
     try {
-      const response = await axios.get('/api/v1/system/process-manager');
+      const response = await api.get('/system/process-manager');
       if (response.data.success) {
         setProcesses(response.data.data || []);
       }
@@ -60,7 +60,7 @@ export default function ProcessManager() {
 
   const fetchUsers = async () => {
     try {
-      const response = await axios.get('/api/v1/system/users');
+      const response = await api.get('/system/users');
       if (response.data.success) {
         setUsers(response.data.data || []);
       }
@@ -88,10 +88,10 @@ export default function ProcessManager() {
 
     try {
       if (killTarget.type === 'process') {
-        await axios.post('/api/v1/system/kill-process', { pid: killTarget.pid });
+        await api.post('/system/kill-process', { pid: killTarget.pid });
         setSuccess(`İşlem ${killTarget.pid} sonlandırıldı`);
       } else {
-        await axios.post('/api/v1/system/kill-user-processes', { username: killTarget.username });
+        await api.post('/system/kill-user-processes', { username: killTarget.username });
         setSuccess(`${killTarget.username} kullanıcısının tüm işlemleri sonlandırıldı`);
       }
       fetchProcesses();
