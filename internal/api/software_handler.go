@@ -810,6 +810,11 @@ func (h *Handler) UninstallSoftware(c *fiber.Ctx) error {
 	switch req.Package {
 	case "clamav":
 		exec.Command("rm", "-rf", "/var/lib/clamav").Run()
+		exec.Command("rm", "-rf", "/var/log/clamav").Run()
+		exec.Command("rm", "-rf", "/var/run/clamav").Run()
+		exec.Command("bash", "-c", "systemctl stop clamav-daemon.socket 2>/dev/null; systemctl disable clamav-daemon.socket 2>/dev/null; systemctl daemon-reload").Run()
+		exec.Command("userdel", "clamav").Run()
+		exec.Command("groupdel", "clamav").Run()
 	}
 
 	return c.JSON(models.APIResponse{

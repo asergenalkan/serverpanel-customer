@@ -576,7 +576,12 @@ func (h *Handler) uninstallSoftwareWithLogs(taskID, packageName string) (bool, e
 	switch packageName {
 	case "clamav":
 		exec.Command("rm", "-rf", "/var/lib/clamav").Run()
-		taskManager.addLog(taskID, "🧹 Data dosyaları temizlendi")
+		exec.Command("rm", "-rf", "/var/log/clamav").Run()
+		exec.Command("rm", "-rf", "/var/run/clamav").Run()
+		exec.Command("bash", "-c", "systemctl stop clamav-daemon.socket 2>/dev/null; systemctl disable clamav-daemon.socket 2>/dev/null; systemctl daemon-reload").Run()
+		exec.Command("userdel", "clamav").Run()
+		exec.Command("groupdel", "clamav").Run()
+		taskManager.addLog(taskID, "🧹 Tüm kalıntılar temizlendi")
 	}
 
 	return true, nil
