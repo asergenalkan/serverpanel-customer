@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Mail, AlertTriangle, CheckCircle, Trash2, Plus, RefreshCw, Bug, Filter } from 'lucide-react';
+import Layout from '../components/Layout';
 
 interface SpamSettings {
   enabled: boolean;
@@ -157,13 +158,16 @@ const SpamFiltersPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
-      </div>
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+        </div>
+      </Layout>
     );
   }
 
   return (
+    <Layout>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -496,6 +500,7 @@ const SpamFiltersPage: React.FC = () => {
         </div>
       </div>
     </div>
+  </Layout>
   );
 };
 
