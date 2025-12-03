@@ -19,16 +19,38 @@ Bu dosya WHM/cPanel özelliklerini analiz eder ve ServerPanel'e eklenecek özell
 | FTP Yönetimi | ✅ | ✅ Pure-FTPd | %90 |
 | SSL/TLS | ✅ | ✅ Let's Encrypt + Otomatik Vhost | %98 |
 | **PHP Yönetimi** | ✅ | ✅ **MultiPHP + Yazılım Yöneticisi** | **%95** |
-| **Sunucu Yönetimi** | ✅ | ✅ **Sunucu Durumu + Yazılım Yöneticisi** | **%80** |
+| **Sunucu Yönetimi** | ✅ | ✅ **Sunucu Durumu + Yazılım Yöneticisi** | **%90** |
 | Backup | ✅ | ❌ | %0 |
-| Cron Jobs | ✅ | ❌ | %0 |
-| Güvenlik | ✅ | ⚠️ Temel + SpamAssassin + ClamAV | %40 |
+| **Cron Jobs** | ✅ | ✅ **Tam fonksiyonel** | **%95** |
+| **Güvenlik** | ✅ | ✅ **SpamAssassin + ClamAV + Spam Filtreleri UI** | **%60** |
 | Metrics/Logs | ✅ | ⚠️ Temel | %15 |
 | Reseller Sistemi | ✅ | ⚠️ Rol var | %10 |
 | **Kurulum Scripti** | ✅ | ✅ Tam otomatik + Migration + Mail + MultiPHP | %98 |
+| **UI/UX** | ✅ | ✅ **Lottie Loading Animasyonları + Tema Uyumu** | **%90** |
 
 ### 🆕 Son Eklenen Özellikler (3 Aralık 2025)
-- ✅ **Mail Rate Limiting & Kuyruk Sistemi** (YENİ!)
+- ✅ **Cron Jobs Yönetimi** (YENİ!)
+  - Cron işi oluşturma/düzenleme/silme
+  - Zamanlama şablonları (dakikalık, saatlik, günlük, haftalık, aylık)
+  - Özel cron ifadesi desteği
+  - Manuel çalıştırma ve çıktı görüntüleme
+  - Aktif/pasif durumu değiştirme
+  - Sistem crontab senkronizasyonu
+- ✅ **Spam Filtreleri Sayfası** (YENİ!)
+  - SpamAssassin ayarları (spam skoru, otomatik silme)
+  - ClamAV antivirüs durumu görüntüleme
+  - Whitelist/Blacklist yönetimi
+  - Veritabanı güncelleme tetikleme
+- ✅ **Gelişmiş Yazılım Yönetimi** (YENİ!)
+  - ClamAV tam kurulum/kaldırma (daemon + freshclam + temizlik)
+  - ImageMagick tam kurulum/kaldırma (config temizliği dahil)
+  - SpamAssassin/Fail2ban servis yönetimi
+  - Kalıntısız kaldırma (paketler, config, kullanıcılar, gruplar)
+- ✅ **Lottie Loading Animasyonları** (YENİ!)
+  - Tema uyumlu loading animasyonu
+  - Ortak LoadingAnimation bileşeni
+  - Dark/Light mode desteği
+- ✅ **Mail Rate Limiting & Kuyruk Sistemi**
   - Hesap bazlı saatlik/günlük mail limiti
   - Paket bazlı limit tanımlama (Admin)
   - Postfix Policy Daemon entegrasyonu
@@ -510,8 +532,23 @@ Henüz yok
 
 ## 🛡️ 13. GÜVENLİK ÖZELLİKLERİ
 
-### Mevcut ⚠️
+### Mevcut ✅
 - [x] Temel authentication
+- [x] **SpamAssassin Entegrasyonu**
+  - Spam skoru ayarlama
+  - Otomatik silme eşiği
+  - Spam klasörüne taşıma
+- [x] **ClamAV Antivirüs**
+  - Virüs veritabanı durumu
+  - Otomatik güncelleme
+  - Daemon yönetimi
+- [x] **Whitelist/Blacklist**
+  - E-posta/domain bazlı filtreleme
+  - Dinamik liste yönetimi
+- [x] **Spam Filtreleri UI**
+  - Ayarlar sayfası
+  - Durum görüntüleme
+  - İstatistikler
 
 ### Eksik Özellikler
 - [ ] **IP Blocker**
@@ -730,10 +767,10 @@ Bir hosting müşterisinin temel ihtiyaçlarına göre sıralandı:
 
 ## 📈 İlerleme Durumu
 
-- **Tamamlanan**: 40+ özellik
-- **Devam Eden**: 2 özellik
-- **Bekleyen**: 115+ özellik
-- **Toplam İlerleme**: ~%40
+- **Tamamlanan**: 55+ özellik
+- **Devam Eden**: 1 özellik (Backup)
+- **Bekleyen**: 105+ özellik
+- **Toplam İlerleme**: ~%50
 
 ### ✅ Son Tamamlanan Özellikler (2 Aralık 2025)
 - Tek komutla kurulum scripti (install.sh)
@@ -798,4 +835,4 @@ Bir hosting müşterisinin temel ihtiyaçlarına göre sıralandı:
 
 ---
 
-*Son güncelleme: 2 Aralık 2025*
+*Son güncelleme: 3 Aralık 2025*

@@ -203,5 +203,15 @@ func SetupRoutes(router fiber.Router, db *database.DB) {
 	protected.Get("/spam/global", admin, h.GetGlobalSpamSettings)
 	protected.Post("/spam/toggle-service", admin, h.ToggleSpamService)
 
+	// Cron Jobs (all authenticated users)
+	protected.Get("/cron/jobs", h.ListCronJobs)
+	protected.Get("/cron/jobs/:id", h.GetCronJob)
+	protected.Post("/cron/jobs", h.CreateCronJob)
+	protected.Put("/cron/jobs/:id", h.UpdateCronJob)
+	protected.Delete("/cron/jobs/:id", h.DeleteCronJob)
+	protected.Post("/cron/jobs/:id/toggle", h.ToggleCronJob)
+	protected.Post("/cron/jobs/:id/run", h.RunCronJob)
+	protected.Get("/cron/presets", h.GetCronPresets)
+
 	// Note: WebSocket route is defined in main.go to avoid SPA fallback conflict
 }

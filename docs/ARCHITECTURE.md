@@ -86,7 +86,10 @@ Admin giriş yapar
 │   ├── Apache modülleri etkinleştirme/devre dışı bırakma
 │   ├── Ek yazılımlar kurma/kaldırma
 │   ├── Gerçek zamanlı log görüntüleme (WebSocket)
-│   └── Ondrej PHP PPA desteği (tüm PHP sürümleri)
+│   ├── Ondrej PHP PPA desteği (tüm PHP sürümleri)
+│   ├── **ClamAV tam kurulum/kaldırma** (daemon + freshclam + temizlik)
+│   ├── **ImageMagick tam kurulum/kaldırma** (config temizliği dahil)
+│   └── **Kalıntısız kaldırma** (paketler, config, kullanıcılar, gruplar)
 │
 ├── Sunucu Ayarları (Admin) → ✅ Tam fonksiyonel!
 │   ├── MultiPHP aktif/pasif
@@ -105,6 +108,20 @@ Admin giriş yapar
 │   ├── Günlük İşlem Günlüğü
 │   ├── Top Processes
 │   └── Task Queue
+│
+├── Spam Filtreleri → ✅ Tam fonksiyonel!
+│   ├── SpamAssassin ayarları (spam skoru, otomatik silme)
+│   ├── ClamAV antivirüs durumu görüntüleme
+│   ├── Whitelist/Blacklist yönetimi
+│   └── Veritabanı güncelleme tetikleme
+│
+├── Cron Jobs → ✅ Tam fonksiyonel!
+│   ├── Cron işi oluşturma/düzenleme/silme
+│   ├── Zamanlama şablonları (dakikalık, saatlik, günlük, haftalık, aylık)
+│   ├── Özel cron ifadesi desteği
+│   ├── Manuel çalıştırma ve çıktı görüntüleme
+│   ├── Aktif/pasif durumu değiştirme
+│   └── Sistem crontab senkronizasyonu
 │
 ├── FTP Yönetimi (Pure-FTPd) → ✅ Tam fonksiyonel!
 │   ├── FTP hesabı oluşturma/silme
@@ -364,9 +381,10 @@ func sanitizePath(path string) string {
 4. [x] DNS Zone Editor (BIND9) + Arama ✅
 5. [x] Paket Yönetimi UI ✅
 6. [x] Domain & Subdomain Yönetimi ✅
-7. [ ] Backup
-8. [ ] E-posta yönetimi
-9. [ ] Cron Jobs
+7. [x] E-posta yönetimi (Postfix + Dovecot + Roundcube) ✅
+8. [x] Spam Filtreleri (SpamAssassin + ClamAV) ✅
+9. [x] Cron Jobs ✅
+10. [ ] Backup
 
 ### ✅ UI/UX İyileştirmeleri (TAMAMLANDI!)
 1. [x] Merkezi tema renk sistemi (CSS variables)
@@ -377,3 +395,6 @@ func sanitizePath(path string) string {
 6. [x] DNS Zone Editor kayıt arama çubuğu
 7. [x] Paket Yönetimi sayfası (grid görünümü, modal'lar)
 8. [x] Domain & Subdomain Yönetimi (tab görünümü, limit kontrolü)
+9. [x] **Lottie Loading Animasyonları** (tema uyumlu)
+10. [x] **Spam Filtreleri Sayfası** (SpamAssassin + ClamAV UI)
+11. [x] **Cron Jobs Sayfası** (zamanlama şablonları + manuel çalıştırma)

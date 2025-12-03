@@ -153,6 +153,32 @@ if [[ -f "$DB_PATH" ]]; then
         );"
     fi
     
+    # cron_jobs tablosu var mı?
+    if ! sqlite3 "$DB_PATH" ".tables" | grep -q "cron_jobs"; then
+        echo -e "${YELLOW}  cron_jobs tablosu oluşturuluyor...${NC}"
+        sqlite3 "$DB_PATH" "CREATE TABLE IF NOT EXISTS cron_jobs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            command TEXT NOT NULL,
+            schedule TEXT NOT NULL,
+            minute TEXT DEFAULT '*',
+            hour TEXT DEFAULT '*',
+            day TEXT DEFAULT '*',
+            month TEXT DEFAULT '*',
+            weekday TEXT DEFAULT '*',
+            active INTEGER DEFAULT 1,
+            last_run DATETIME,
+            next_run DATETIME,
+            last_status TEXT,
+            last_output TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );"
+        sqlite3 "$DB_PATH" "CREATE INDEX IF NOT EXISTS idx_cron_jobs_user_id ON cron_jobs(user_id);" 2>/dev/null || true
+    fi
+    
     echo -e "${GREEN}✓ Veritabanı güncellendi${NC}"
 else
     echo -e "${GREEN}✓ Yeni kurulum, migration gerekli değil${NC}"

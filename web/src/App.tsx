@@ -22,6 +22,7 @@ import SoftwareManager from '@/pages/SoftwareManager';
 import ServerSettings from '@/pages/ServerSettings';
 import ServerFeatures from '@/pages/ServerFeatures';
 import SpamFilters from '@/pages/SpamFilters';
+import CronJobs from '@/pages/CronJobs';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -250,6 +251,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <SpamFilters />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/cron"
+        element={
+          <ProtectedRoute>
+            <CronJobs />
           </ProtectedRoute>
         }
       />

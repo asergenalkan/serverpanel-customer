@@ -256,6 +256,19 @@ install_packages() {
         log_warn "Pure-FTPd kurulamadı, manuel kurulum gerekebilir"
     fi
     
+    # Cron servisi kontrolü
+    log_progress "Cron servisi kontrol ediliyor"
+    if ! command -v cron &> /dev/null; then
+        DEBIAN_FRONTEND=noninteractive apt-get install -y cron > /dev/null 2>&1
+    fi
+    systemctl enable cron > /dev/null 2>&1
+    systemctl start cron > /dev/null 2>&1
+    if systemctl is-active --quiet cron; then
+        log_done "Cron servisi çalışıyor"
+    else
+        log_warn "Cron servisi başlatılamadı"
+    fi
+    
     # Kurulum özeti
     echo ""
     log_info "Apache: $(apache2 -v 2>/dev/null | head -1 | awk '{print $3}')"

@@ -302,7 +302,30 @@ func (db *DB) migrate() error {
 			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 		)`,
 
+		// Cron Jobs table
+		`CREATE TABLE IF NOT EXISTS cron_jobs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			name TEXT NOT NULL,
+			command TEXT NOT NULL,
+			schedule TEXT NOT NULL,
+			minute TEXT DEFAULT '*',
+			hour TEXT DEFAULT '*',
+			day TEXT DEFAULT '*',
+			month TEXT DEFAULT '*',
+			weekday TEXT DEFAULT '*',
+			active INTEGER DEFAULT 1,
+			last_run DATETIME,
+			next_run DATETIME,
+			last_status TEXT,
+			last_output TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+
 		// Create indexes
+		`CREATE INDEX IF NOT EXISTS idx_cron_jobs_user_id ON cron_jobs(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_dns_records_domain_id ON dns_records(domain_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_domains_user_id ON domains(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_databases_user_id ON databases(user_id)`,
