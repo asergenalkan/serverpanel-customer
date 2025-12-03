@@ -159,8 +159,9 @@ const SpamFiltersPage: React.FC = () => {
   if (loading) {
     return (
       <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+        <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
+          <div className="h-10 w-10 rounded-full border-2 border-muted border-t-2 border-t-primary animate-spin"></div>
+          <p className="text-sm">Yükleniyor...</p>
         </div>
       </Layout>
     );
