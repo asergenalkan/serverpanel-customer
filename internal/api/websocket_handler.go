@@ -556,6 +556,9 @@ func (h *Handler) uninstallSoftwareWithLogs(taskID, packageName string) (bool, e
 		preRemoveCmd = "systemctl stop spamassassin 2>/dev/null; systemctl disable spamassassin 2>/dev/null"
 	case "fail2ban":
 		preRemoveCmd = "systemctl stop fail2ban 2>/dev/null; systemctl disable fail2ban 2>/dev/null"
+	case "imagemagick":
+		// Also purge common package to avoid rc state
+		packageToRemove = "imagemagick imagemagick-6-common"
 	}
 
 	// Run pre-remove commands if any
@@ -582,6 +585,8 @@ func (h *Handler) uninstallSoftwareWithLogs(taskID, packageName string) (bool, e
 		exec.Command("userdel", "clamav").Run()
 		exec.Command("groupdel", "clamav").Run()
 		taskManager.addLog(taskID, "🧹 Tüm kalıntılar temizlendi")
+	case "imagemagick":
+		exec.Command("rm", "-rf", "/etc/ImageMagick-6").Run()
 	}
 
 	return true, nil

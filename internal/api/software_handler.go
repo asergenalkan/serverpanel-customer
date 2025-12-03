@@ -789,6 +789,9 @@ func (h *Handler) UninstallSoftware(c *fiber.Ctx) error {
 		preRemoveCmd = "systemctl stop spamassassin 2>/dev/null; systemctl disable spamassassin 2>/dev/null"
 	case "fail2ban":
 		preRemoveCmd = "systemctl stop fail2ban 2>/dev/null; systemctl disable fail2ban 2>/dev/null"
+	case "imagemagick":
+		// Also purge common package to avoid rc state
+		packageToRemove = "imagemagick imagemagick-6-common"
 	}
 
 	// Run pre-remove commands if any
@@ -815,6 +818,8 @@ func (h *Handler) UninstallSoftware(c *fiber.Ctx) error {
 		exec.Command("bash", "-c", "systemctl stop clamav-daemon.socket 2>/dev/null; systemctl disable clamav-daemon.socket 2>/dev/null; systemctl daemon-reload").Run()
 		exec.Command("userdel", "clamav").Run()
 		exec.Command("groupdel", "clamav").Run()
+	case "imagemagick":
+		exec.Command("rm", "-rf", "/etc/ImageMagick-6").Run()
 	}
 
 	return c.JSON(models.APIResponse{
