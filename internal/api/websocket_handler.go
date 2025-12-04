@@ -3,6 +3,7 @@ package api
 import (
 	"bufio"
 	"fmt"
+	"os"
 	"os/exec"
 	"sync"
 	"time"
@@ -475,6 +476,34 @@ func (h *Handler) enableApacheModuleWithLogs(taskID, module string) (bool, error
 
 	if err != nil {
 		return false, err
+	}
+
+	// ModSecurity için özel yapılandırma
+	if module == "security2" {
+		taskManager.addLog(taskID, "")
+		taskManager.addLog(taskID, "🛡️ ModSecurity yapılandırılıyor...")
+
+		// Config dosyasını oluştur
+		configSrc := "/etc/modsecurity/modsecurity.conf-recommended"
+		configDst := "/etc/modsecurity/modsecurity.conf"
+
+		if _, err := os.Stat(configDst); os.IsNotExist(err) {
+			if _, err := os.Stat(configSrc); err == nil {
+				// Config'i kopyala
+				input, _ := os.ReadFile(configSrc)
+				os.WriteFile(configDst, input, 0644)
+				taskManager.addLog(taskID, "  ✓ ModSecurity config oluşturuldu")
+			}
+		}
+
+		// Audit log dizinini oluştur
+		os.MkdirAll("/var/log/modsecurity", 0755)
+		exec.Command("chown", "www-data:www-data", "/var/log/modsecurity").Run()
+		taskManager.addLog(taskID, "  ✓ Audit log dizini oluşturuldu")
+
+		// Varsayılan olarak DetectionOnly modunda başlat (güvenli)
+		taskManager.addLog(taskID, "  ℹ️ ModSecurity DetectionOnly modunda başlatıldı")
+		taskManager.addLog(taskID, "  ℹ️ Engelleme modu için: Güvenlik → ModSecurity WAF")
 	}
 
 	taskManager.addLog(taskID, "")
