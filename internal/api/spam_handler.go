@@ -353,9 +353,14 @@ func (h *Handler) ScanPath(c *fiber.Ctx) error {
 
 	// Determine scan path
 	var scanPath string
-	if role == "admin" && input.Path != "" {
-		// Admin can scan any path
-		scanPath = input.Path
+	if role == "admin" {
+		if input.Path != "" {
+			// Admin can scan any path
+			scanPath = input.Path
+		} else {
+			// Admin default: scan all user home directories
+			scanPath = "/home"
+		}
 	} else {
 		// Regular users can only scan their home directory
 		homeDir := "/home/" + username
@@ -451,6 +456,7 @@ func (h *Handler) ScanPath(c *fiber.Ctx) error {
 // QuickScan performs a quick scan of common malware locations
 func (h *Handler) QuickScan(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(int64)
+	role := c.Locals("role").(string)
 
 	// Get user's home directory
 	var username string
@@ -459,9 +465,13 @@ func (h *Handler) QuickScan(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "Kullanıcı bulunamadı"})
 	}
 
-	homeDir := "/home/" + username
-	scanPaths := []string{
-		homeDir + "/public_html",
+	var scanPaths []string
+	if role == "admin" {
+		// Admin: scan all user public_html directories
+		scanPaths = []string{"/home"}
+	} else {
+		homeDir := "/home/" + username
+		scanPaths = []string{homeDir + "/public_html"}
 	}
 
 	// Check if ClamAV is installed

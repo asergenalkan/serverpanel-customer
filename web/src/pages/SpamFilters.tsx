@@ -576,7 +576,7 @@ const SpamFiltersPage: React.FC = () => {
                         type="text"
                         value={scanPath}
                         onChange={(e) => setScanPath(e.target.value)}
-                        placeholder="Taranacak dizin yolu (boş bırakırsanız public_html taranacak)"
+                        placeholder="Taranacak dizin yolu (Admin: /home, Kullanıcı: public_html)"
                         className="w-full px-4 py-2 border border-border rounded-lg bg-background focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                       />
                     </div>
