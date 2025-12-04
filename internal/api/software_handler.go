@@ -149,6 +149,7 @@ var additionalSoftwareList = []struct {
 	{"opendkim", "OpenDKIM", "DKIM imzalama", "opendkim"},
 	{"clamav", "ClamAV", "Antivirüs tarayıcı", "clamscan"},
 	{"spamassassin", "SpamAssassin", "Spam filtresi", "spamassassin"},
+	{"libapache2-mod-security2", "ModSecurity", "Web Application Firewall (WAF)", ""},
 }
 
 // GetSoftwareOverview returns complete software status
@@ -359,12 +360,39 @@ func (h *Handler) getAdditionalSoftware() []SoftwarePackage {
 			Category:    "additional",
 		}
 
-		// Check if command exists
-		cmd := exec.Command("which", sw.CheckCmd)
-		if err := cmd.Run(); err == nil {
-			pkg.Installed = true
-			pkg.Version = h.getSoftwareVersion(sw.CheckCmd)
-			pkg.Active = h.isSoftwareActive(sw.Name)
+		// Special handling for packages without command
+		if sw.CheckCmd == "" {
+			// Check via dpkg
+			cmd := exec.Command("dpkg", "-l", sw.Name)
+			if output, err := cmd.Output(); err == nil && strings.Contains(string(output), "ii") {
+				pkg.Installed = true
+				// Extract version from dpkg output
+				lines := strings.Split(string(output), "\n")
+				for _, line := range lines {
+					if strings.HasPrefix(line, "ii") {
+						fields := strings.Fields(line)
+						if len(fields) >= 3 {
+							pkg.Version = fields[2]
+						}
+						break
+					}
+				}
+				// Check if ModSecurity module is enabled
+				if sw.Name == "libapache2-mod-security2" {
+					checkCmd := exec.Command("a2query", "-m", "security2")
+					if checkOutput, err := checkCmd.Output(); err == nil && strings.Contains(string(checkOutput), "enabled") {
+						pkg.Active = true
+					}
+				}
+			}
+		} else {
+			// Check if command exists
+			cmd := exec.Command("which", sw.CheckCmd)
+			if err := cmd.Run(); err == nil {
+				pkg.Installed = true
+				pkg.Version = h.getSoftwareVersion(sw.CheckCmd)
+				pkg.Active = h.isSoftwareActive(sw.Name)
+			}
 		}
 
 		software = append(software, pkg)
