@@ -519,7 +519,65 @@ func (h *Handler) installSoftwareWithLogs(taskID, packageName string) (bool, err
 	case "spamassassin":
 		postInstallCmd = "systemctl enable spamassassin && systemctl start spamassassin"
 	case "fail2ban":
-		postInstallCmd = "systemctl enable fail2ban && systemctl start fail2ban"
+		postInstallCmd = `
+# Log dosyalarını oluştur
+touch /var/log/mail.log /var/log/auth.log
+mkdir -p /var/log/apache2
+touch /var/log/apache2/error.log /var/log/apache2/access.log
+
+# Jail yapılandırması
+cat > /etc/fail2ban/jail.local << 'JAILEOF'
+[DEFAULT]
+bantime = 3600
+findtime = 600
+maxretry = 5
+ignoreip = 127.0.0.1/8 ::1
+
+[sshd]
+enabled = true
+port = ssh
+filter = sshd
+logpath = /var/log/auth.log
+maxretry = 5
+
+[apache-auth]
+enabled = true
+port = http,https
+filter = apache-auth
+logpath = /var/log/apache2/*error.log
+maxretry = 5
+
+[apache-badbots]
+enabled = true
+port = http,https
+filter = apache-badbots
+logpath = /var/log/apache2/*access.log
+maxretry = 2
+
+[postfix]
+enabled = true
+port = smtp,465,submission
+filter = postfix
+logpath = /var/log/mail.log
+maxretry = 5
+
+[dovecot]
+enabled = true
+port = pop3,pop3s,imap,imaps
+filter = dovecot
+logpath = /var/log/mail.log
+maxretry = 5
+
+[pure-ftpd]
+enabled = true
+port = ftp,ftp-data,ftps,ftps-data
+filter = pure-ftpd
+logpath = /var/log/syslog
+maxretry = 5
+JAILEOF
+
+systemctl enable fail2ban && systemctl restart fail2ban
+`
 	}
 
 	err := RunCommandWithLogs(taskID, "bash", "-c",
