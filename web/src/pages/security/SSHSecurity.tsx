@@ -67,6 +67,9 @@ export default function SSHSecurity() {
   const [newKeyName, setNewKeyName] = useState('');
   const [newPublicKey, setNewPublicKey] = useState('');
   const [keyLoading, setKeyLoading] = useState(false);
+  const [showPasswordWarning, setShowPasswordWarning] = useState(false);
+  const [showRootWarning, setShowRootWarning] = useState(false);
+  const [pendingConfig, setPendingConfig] = useState<SSHConfig | null>(null);
 
   useEffect(() => {
     fetchConfig();
@@ -175,14 +178,38 @@ export default function SSHSecurity() {
     setTimeout(() => setSuccess(''), 2000);
   };
 
-  const saveConfig = async () => {
+  const saveConfig = async (forceConfig?: SSHConfig) => {
+    const configToSave = forceConfig || config;
+    
+    // Şifre girişi kapatılıyor ve SSH key yok mu?
+    if (configToSave.password_authentication === 'no' && sshKeys.length === 0) {
+      setPendingConfig(configToSave);
+      setShowPasswordWarning(true);
+      return;
+    }
+    
+    // Root girişi tamamen kapatılıyor mu?
+    if (configToSave.permit_root_login === 'no') {
+      setPendingConfig(configToSave);
+      setShowRootWarning(true);
+      return;
+    }
+    
+    await doSaveConfig(configToSave);
+  };
+
+  const doSaveConfig = async (configToSave: SSHConfig) => {
     setSaving(true);
     setError('');
     setSuccess('');
+    setShowPasswordWarning(false);
+    setShowRootWarning(false);
+    setPendingConfig(null);
     try {
-      const response = await api.put('/security/ssh/config', config);
+      const response = await api.put('/security/ssh/config', configToSave);
       if (response.data.success) {
         setSuccess('SSH yapılandırması güncellendi. SSH servisi yeniden başlatıldı.');
+        setConfig(configToSave);
       }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Yapılandırma kaydedilemedi');
@@ -282,7 +309,7 @@ export default function SSHSecurity() {
               <RefreshCw className="w-4 h-4 mr-2" />
               Yenile
             </Button>
-            <Button onClick={saveConfig} disabled={saving}>
+            <Button onClick={() => saveConfig()} disabled={saving}>
               <Save className="w-4 h-4 mr-2" />
               {saving ? 'Kaydediliyor...' : 'Kaydet'}
             </Button>
@@ -747,6 +774,92 @@ export default function SSHSecurity() {
                 }}>
                   <X className="w-4 h-4 mr-2" />
                   Kapat (Key'i indirdiğimden eminim)
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Password Authentication Warning Modal */}
+        {showPasswordWarning && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-card rounded-lg border border-border p-6 w-full max-w-md">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                  <AlertTriangle className="w-6 h-6 text-destructive" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-destructive">Tehlikeli İşlem!</h3>
+                  <p className="text-sm text-muted-foreground">Şifre ile giriş kapatılıyor</p>
+                </div>
+              </div>
+
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 mb-4">
+                <p className="text-sm">
+                  <strong>Hiç SSH key'iniz yok!</strong> Şifre ile girişi kapattığınızda sunucuya
+                  <strong> erişiminizi tamamen kaybedebilirsiniz.</strong>
+                </p>
+              </div>
+
+              <p className="text-sm text-muted-foreground mb-4">
+                Önce bir SSH key oluşturun, private key'i indirin ve bağlantıyı test edin.
+                Sonra şifre ile girişi kapatabilirsiniz.
+              </p>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => {
+                  setShowPasswordWarning(false);
+                  setPendingConfig(null);
+                }}>
+                  İptal
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => pendingConfig && doSaveConfig(pendingConfig)}
+                >
+                  Yine de Kapat (Riskli!)
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Root Login Warning Modal */}
+        {showRootWarning && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-card rounded-lg border border-border p-6 w-full max-w-md">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-yellow-500/10 flex items-center justify-center">
+                  <AlertTriangle className="w-6 h-6 text-yellow-500" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-yellow-600">Dikkat!</h3>
+                  <p className="text-sm text-muted-foreground">Root girişi kapatılıyor</p>
+                </div>
+              </div>
+
+              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mb-4">
+                <p className="text-sm">
+                  Root girişini tamamen kapattığınızda, sunucuya <strong>sudo yetkili başka bir kullanıcı</strong> ile
+                  giriş yapmanız gerekecek.
+                </p>
+              </div>
+
+              <p className="text-sm text-muted-foreground mb-4">
+                Sudo yetkili bir kullanıcınız olduğundan ve o kullanıcı ile bağlanabildiğinizden emin misiniz?
+              </p>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => {
+                  setShowRootWarning(false);
+                  setPendingConfig(null);
+                }}>
+                  İptal
+                </Button>
+                <Button
+                  onClick={() => pendingConfig && doSaveConfig(pendingConfig)}
+                >
+                  Evet, Devam Et
                 </Button>
               </div>
             </div>
