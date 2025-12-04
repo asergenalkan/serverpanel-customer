@@ -519,15 +519,101 @@ const ModSecurityPage: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Info */}
-                  <div className="p-4 bg-blue-500/10 rounded-lg">
-                    <h4 className="font-medium text-blue-500 mb-2">ModSecurity Hakkında</h4>
-                    <ul className="text-sm text-blue-400 space-y-1">
-                      <li>• SQL Injection, XSS, CSRF gibi saldırıları engeller</li>
-                      <li>• OWASP Core Rule Set ile kapsamlı koruma sağlar</li>
-                      <li>• Tespit modunda önce logları inceleyin, sonra engelleme moduna geçin</li>
-                      <li>• Yanlış pozitifler için whitelist kullanın</li>
-                    </ul>
+                  {/* Detailed Info Section */}
+                  <div className="space-y-4">
+                    {/* What is ModSecurity */}
+                    <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                      <h4 className="font-medium text-blue-500 mb-3 flex items-center">
+                        <Shield className="w-5 h-5 mr-2" />
+                        ModSecurity Nedir?
+                      </h4>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        ModSecurity, web uygulamalarınızı koruyan açık kaynaklı bir <strong>Web Application Firewall (WAF)</strong>'dır. 
+                        HTTP trafiğini gerçek zamanlı olarak analiz eder ve zararlı istekleri tespit edip engelleyebilir.
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                        <div className="flex items-start space-x-2">
+                          <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                          <span><strong>SQL Injection</strong> - Veritabanı saldırılarını engeller</span>
+                        </div>
+                        <div className="flex items-start space-x-2">
+                          <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                          <span><strong>XSS (Cross-Site Scripting)</strong> - Script enjeksiyonlarını önler</span>
+                        </div>
+                        <div className="flex items-start space-x-2">
+                          <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                          <span><strong>CSRF</strong> - Sahte istek saldırılarını engeller</span>
+                        </div>
+                        <div className="flex items-start space-x-2">
+                          <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                          <span><strong>Path Traversal</strong> - Dizin gezinme saldırılarını önler</span>
+                        </div>
+                        <div className="flex items-start space-x-2">
+                          <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                          <span><strong>Remote Code Execution</strong> - Uzaktan kod çalıştırmayı engeller</span>
+                        </div>
+                        <div className="flex items-start space-x-2">
+                          <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                          <span><strong>Bot/Scanner Koruması</strong> - Kötü niyetli botları engeller</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Working Modes */}
+                    <div className="p-4 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
+                      <h4 className="font-medium text-yellow-600 mb-3 flex items-center">
+                        <AlertTriangle className="w-5 h-5 mr-2" />
+                        Çalışma Modları - Önemli!
+                      </h4>
+                      <div className="space-y-3 text-sm">
+                        <div className="p-3 bg-yellow-500/10 rounded border-l-4 border-yellow-500">
+                          <p className="font-medium text-yellow-600">🔍 Sadece Tespit (DetectionOnly) - Önerilen Başlangıç</p>
+                          <p className="text-muted-foreground mt-1">
+                            Saldırılar tespit edilir ve loglanır ama <strong>engellenmez</strong>. 
+                            Web siteniz normal çalışmaya devam eder. Önce bu modda çalıştırıp logları inceleyin.
+                          </p>
+                        </div>
+                        <div className="p-3 bg-red-500/10 rounded border-l-4 border-red-500">
+                          <p className="font-medium text-red-600">🛡️ Engelleme (On) - Dikkatli Kullanın</p>
+                          <p className="text-muted-foreground mt-1">
+                            Saldırılar tespit edildiğinde <strong>anında engellenir</strong> (HTTP 403). 
+                            Yanlış pozitifler sitenizin çalışmasını engelleyebilir! Önce tespit modunda test edin.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Best Practices */}
+                    <div className="p-4 bg-green-500/10 rounded-lg border border-green-500/20">
+                      <h4 className="font-medium text-green-600 mb-3 flex items-center">
+                        <CheckCircle className="w-5 h-5 mr-2" />
+                        Önerilen Kullanım
+                      </h4>
+                      <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
+                        <li><strong>Tespit modunda başlayın</strong> - Önce "Sadece Tespit" modunu aktif edin</li>
+                        <li><strong>1-2 hafta logları izleyin</strong> - Audit Log sekmesinden saldırıları ve yanlış pozitifleri inceleyin</li>
+                        <li><strong>Yanlış pozitifleri whitelist'e ekleyin</strong> - Güvenilir IP'leri veya uygulamaları muaf tutun</li>
+                        <li><strong>Engelleme moduna geçin</strong> - Yanlış pozitifler giderildikten sonra tam korumayı aktif edin</li>
+                        <li><strong>Düzenli kontrol edin</strong> - Logları periyodik olarak inceleyin</li>
+                      </ol>
+                    </div>
+
+                    {/* OWASP CRS Info */}
+                    <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-500/20">
+                      <h4 className="font-medium text-purple-600 mb-3 flex items-center">
+                        <List className="w-5 h-5 mr-2" />
+                        OWASP Core Rule Set (CRS)
+                      </h4>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        ModSecurity, <strong>OWASP Core Rule Set</strong> ile birlikte çalışır. Bu kural seti:
+                      </p>
+                      <ul className="text-sm text-muted-foreground space-y-1">
+                        <li>• OWASP Top 10 güvenlik açıklarına karşı koruma sağlar</li>
+                        <li>• Dünya genelinde milyonlarca web sitesinde kullanılır</li>
+                        <li>• Sürekli güncellenir ve yeni tehditlere karşı korunur</li>
+                        <li>• WordPress, Drupal, Joomla gibi popüler CMS'lerle uyumludur</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
               )}
