@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Mail, AlertTriangle, CheckCircle, Trash2, Plus, RefreshCw, Bug, Filter } from 'lucide-react';
+import { Shield, Mail, AlertTriangle, CheckCircle, Trash2, Plus, RefreshCw, Bug, Filter, Search, FolderSearch, FileWarning, Archive } from 'lucide-react';
 import Layout from '../components/Layout';
 import LoadingAnimation from '../components/LoadingAnimation';
 
@@ -31,7 +31,7 @@ const SpamFiltersPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<'spam' | 'antivirus' | 'whitelist' | 'blacklist'>('spam');
+  const [activeTab, setActiveTab] = useState<'spam' | 'antivirus' | 'scanner' | 'quarantine' | 'whitelist' | 'blacklist'>('spam');
   
   const [settings, setSettings] = useState<SpamSettings>({
     enabled: true,
@@ -59,6 +59,12 @@ const SpamFiltersPage: React.FC = () => {
   
   const [newWhitelist, setNewWhitelist] = useState('');
   const [newBlacklist, setNewBlacklist] = useState('');
+  
+  // Malware scanning state
+  const [scanning, setScanning] = useState(false);
+  const [scanPath, setScanPath] = useState('');
+  const [scanResults, setScanResults] = useState<any>(null);
+  const [quarantinedFiles, setQuarantinedFiles] = useState<any[]>([]);
 
   useEffect(() => {
     fetchSettings();
@@ -157,6 +163,147 @@ const SpamFiltersPage: React.FC = () => {
     }
   };
 
+  const runScan = async (quick = false) => {
+    setScanning(true);
+    setScanResults(null);
+    setMessage(null);
+    
+    try {
+      const token = localStorage.getItem('token');
+      const endpoint = quick ? '/api/v1/malware/quick-scan' : '/api/v1/malware/scan';
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ path: scanPath })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setScanResults(data.data);
+        if (data.data.infected_files > 0 || data.data.infected_count > 0) {
+          setMessage({ type: 'error', text: `Tehdit tespit edildi!` });
+        } else {
+          setMessage({ type: 'success', text: 'Tarama tamamlandı, tehdit bulunamadı' });
+        }
+      } else {
+        const data = await response.json();
+        setMessage({ type: 'error', text: data.error || 'Tarama başarısız' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Bağlantı hatası' });
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const fetchQuarantinedFiles = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/v1/malware/quarantine', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setQuarantinedFiles(data.data || []);
+      }
+    } catch (error) {
+      console.error('Karantina dosyaları yüklenemedi:', error);
+    }
+  };
+
+  const quarantineFile = async (path: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/v1/malware/quarantine', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ path })
+      });
+      
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Dosya karantinaya alındı' });
+        // Remove from scan results
+        if (scanResults?.results) {
+          setScanResults({
+            ...scanResults,
+            results: scanResults.results.filter((r: any) => r.path !== path)
+          });
+        }
+        fetchQuarantinedFiles();
+      } else {
+        const data = await response.json();
+        setMessage({ type: 'error', text: data.error || 'Karantina başarısız' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Bağlantı hatası' });
+    }
+  };
+
+  const deleteInfectedFile = async (path: string) => {
+    if (!confirm('Bu dosyayı kalıcı olarak silmek istediğinizden emin misiniz?')) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/v1/malware/file', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ path })
+      });
+      
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Dosya silindi' });
+        // Remove from scan results
+        if (scanResults?.results) {
+          setScanResults({
+            ...scanResults,
+            results: scanResults.results.filter((r: any) => r.path !== path)
+          });
+        }
+      } else {
+        const data = await response.json();
+        setMessage({ type: 'error', text: data.error || 'Silme başarısız' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Bağlantı hatası' });
+    }
+  };
+
+  const deleteFromQuarantine = async (path: string) => {
+    if (!confirm('Bu dosyayı karantinadan kalıcı olarak silmek istediğinizden emin misiniz?')) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/v1/malware/file', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ path })
+      });
+      
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Dosya silindi' });
+        fetchQuarantinedFiles();
+      } else {
+        const data = await response.json();
+        setMessage({ type: 'error', text: data.error || 'Silme başarısız' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Bağlantı hatası' });
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -245,6 +392,8 @@ const SpamFiltersPage: React.FC = () => {
             {[
               { id: 'spam', label: 'Spam Ayarları', icon: Mail },
               { id: 'antivirus', label: 'Antivirüs', icon: Bug },
+              { id: 'scanner', label: 'Malware Tarama', icon: Search },
+              { id: 'quarantine', label: 'Karantina', icon: Archive },
               { id: 'whitelist', label: 'Beyaz Liste', icon: CheckCircle },
               { id: 'blacklist', label: 'Kara Liste', icon: AlertTriangle }
             ].map(tab => (
@@ -404,6 +553,188 @@ const SpamFiltersPage: React.FC = () => {
                   <li>• Ransomware, trojan, malware tespiti</li>
                 </ul>
               </div>
+            </div>
+          )}
+
+          {/* Malware Scanner Tab */}
+          {activeTab === 'scanner' && (
+            <div className="space-y-6">
+              {!antivirusStatus.clamav_installed ? (
+                <div className="p-6 bg-yellow-500/10 rounded-lg text-center">
+                  <FileWarning className="w-12 h-12 text-yellow-500 mx-auto mb-3" />
+                  <h3 className="text-lg font-medium">ClamAV Kurulu Değil</h3>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Malware taraması için ClamAV kurulu olmalıdır.
+                    Yazılım Yöneticisi'nden kurabilirsiniz.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center space-x-4">
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        value={scanPath}
+                        onChange={(e) => setScanPath(e.target.value)}
+                        placeholder="Taranacak dizin yolu (boş bırakırsanız public_html taranacak)"
+                        className="w-full px-4 py-2 border border-border rounded-lg bg-background focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      />
+                    </div>
+                    <button
+                      onClick={() => runScan(true)}
+                      disabled={scanning}
+                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 flex items-center space-x-2"
+                    >
+                      {scanning ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Search className="w-4 h-4" />
+                      )}
+                      <span>Hızlı Tara</span>
+                    </button>
+                    <button
+                      onClick={() => runScan(false)}
+                      disabled={scanning}
+                      className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 flex items-center space-x-2"
+                    >
+                      {scanning ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <FolderSearch className="w-4 h-4" />
+                      )}
+                      <span>Tam Tarama</span>
+                    </button>
+                  </div>
+
+                  {scanning && (
+                    <div className="p-6 bg-blue-500/10 rounded-lg text-center">
+                      <RefreshCw className="w-12 h-12 text-blue-500 mx-auto mb-3 animate-spin" />
+                      <h3 className="text-lg font-medium">Tarama Devam Ediyor...</h3>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Bu işlem dosya sayısına bağlı olarak birkaç dakika sürebilir.
+                      </p>
+                    </div>
+                  )}
+
+                  {scanResults && !scanning && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-4 gap-4">
+                        <div className="p-4 bg-muted/50 rounded-lg text-center">
+                          <p className="text-2xl font-bold">{scanResults.total_files || 0}</p>
+                          <p className="text-sm text-muted-foreground">Toplam Dosya</p>
+                        </div>
+                        <div className="p-4 bg-muted/50 rounded-lg text-center">
+                          <p className="text-2xl font-bold">{scanResults.scanned_files || 0}</p>
+                          <p className="text-sm text-muted-foreground">Taranan</p>
+                        </div>
+                        <div className={`p-4 rounded-lg text-center ${(scanResults.infected_files || scanResults.infected_count) > 0 ? 'bg-destructive/10' : 'bg-green-500/10'}`}>
+                          <p className={`text-2xl font-bold ${(scanResults.infected_files || scanResults.infected_count) > 0 ? 'text-destructive' : 'text-green-500'}`}>
+                            {scanResults.infected_files || scanResults.infected_count || 0}
+                          </p>
+                          <p className="text-sm text-muted-foreground">Tehdit</p>
+                        </div>
+                        <div className="p-4 bg-muted/50 rounded-lg text-center">
+                          <p className="text-2xl font-bold">{scanResults.duration || '0s'}</p>
+                          <p className="text-sm text-muted-foreground">Süre</p>
+                        </div>
+                      </div>
+
+                      {scanResults.results && scanResults.results.length > 0 && (
+                        <div className="border border-destructive/20 rounded-lg overflow-hidden">
+                          <div className="bg-destructive/10 px-4 py-2 border-b border-destructive/20">
+                            <h4 className="font-medium text-destructive">Tespit Edilen Tehditler</h4>
+                          </div>
+                          <div className="divide-y divide-border">
+                            {scanResults.results.map((result: any, index: number) => (
+                              <div key={index} className="p-4 flex items-center justify-between">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-mono text-sm truncate">{result.path}</p>
+                                  <p className="text-sm text-destructive">{result.threat}</p>
+                                </div>
+                                <div className="flex items-center space-x-2 ml-4">
+                                  <button
+                                    onClick={() => quarantineFile(result.path)}
+                                    className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm flex items-center space-x-1"
+                                  >
+                                    <Archive className="w-3 h-3" />
+                                    <span>Karantina</span>
+                                  </button>
+                                  <button
+                                    onClick={() => deleteInfectedFile(result.path)}
+                                    className="px-3 py-1 bg-destructive text-white rounded hover:bg-destructive/80 text-sm flex items-center space-x-1"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                    <span>Sil</span>
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {(!scanResults.results || scanResults.results.length === 0) && (
+                        <div className="p-6 bg-green-500/10 rounded-lg text-center">
+                          <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
+                          <h3 className="text-lg font-medium text-green-600">Temiz!</h3>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            Tarama tamamlandı, hiçbir tehdit bulunamadı.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Quarantine Tab */}
+          {activeTab === 'quarantine' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Karantinaya alınan dosyalar burada listelenir. Bu dosyaları geri yükleyebilir veya kalıcı olarak silebilirsiniz.
+                </p>
+                <button
+                  onClick={fetchQuarantinedFiles}
+                  className="px-3 py-1 bg-muted text-foreground rounded hover:bg-muted/80 text-sm flex items-center space-x-1"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Yenile</span>
+                </button>
+              </div>
+
+              {quarantinedFiles.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  <Archive className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>Karantinada dosya yok</p>
+                </div>
+              ) : (
+                <div className="border border-border rounded-lg overflow-hidden">
+                  <div className="divide-y divide-border">
+                    {quarantinedFiles.map((file, index) => (
+                      <div key={index} className="p-4 flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-mono text-sm truncate">{file.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Karantinaya alındı: {file.quarantined_at} | Boyut: {(file.size / 1024).toFixed(2)} KB
+                          </p>
+                        </div>
+                        <div className="flex items-center space-x-2 ml-4">
+                          <button
+                            onClick={() => deleteFromQuarantine(file.path)}
+                            className="px-3 py-1 bg-destructive text-white rounded hover:bg-destructive/80 text-sm flex items-center space-x-1"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>Sil</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

@@ -202,6 +202,13 @@ func SetupRoutes(router fiber.Router, db *database.DB) {
 	protected.Post("/spam/update-clamav", admin, h.UpdateClamAV)
 	protected.Get("/spam/global", admin, h.GetGlobalSpamSettings)
 	protected.Post("/spam/toggle-service", admin, h.ToggleSpamService)
+	// Malware Scanning
+	protected.Post("/malware/scan", h.ScanPath)
+	protected.Post("/malware/quick-scan", h.QuickScan)
+	protected.Post("/malware/quarantine", h.QuarantineFile)
+	protected.Delete("/malware/file", h.DeleteInfectedFile)
+	protected.Get("/malware/quarantine", h.GetQuarantinedFiles)
+	protected.Post("/malware/restore", h.RestoreFromQuarantine)
 
 	// Cron Jobs (all authenticated users)
 	protected.Get("/cron/jobs", h.ListCronJobs)

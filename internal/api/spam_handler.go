@@ -310,3 +310,398 @@ func (h *Handler) applySpamAssassinSettings(userID int64, settings SpamSettings)
 
 	return nil
 }
+
+// ==================== MALWARE SCANNING ====================
+
+// ScanResult represents a malware scan result
+type ScanResult struct {
+	Path      string `json:"path"`
+	Status    string `json:"status"` // clean, infected, error
+	Threat    string `json:"threat,omitempty"`
+	ScannedAt string `json:"scanned_at"`
+}
+
+// ScanSummary represents scan summary
+type ScanSummary struct {
+	TotalFiles    int          `json:"total_files"`
+	ScannedFiles  int          `json:"scanned_files"`
+	InfectedFiles int          `json:"infected_files"`
+	Errors        int          `json:"errors"`
+	Duration      string       `json:"duration"`
+	Results       []ScanResult `json:"results"`
+}
+
+// ScanPath scans a specific path for malware
+func (h *Handler) ScanPath(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(int64)
+	role := c.Locals("role").(string)
+
+	var input struct {
+		Path string `json:"path"`
+	}
+
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Geçersiz veri"})
+	}
+
+	// Get user's home directory
+	var username string
+	err := h.db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&username)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Kullanıcı bulunamadı"})
+	}
+
+	// Determine scan path
+	var scanPath string
+	if role == "admin" && input.Path != "" {
+		// Admin can scan any path
+		scanPath = input.Path
+	} else {
+		// Regular users can only scan their home directory
+		homeDir := "/home/" + username
+		if input.Path != "" {
+			// Ensure path is within home directory
+			if !strings.HasPrefix(input.Path, homeDir) {
+				return c.Status(403).JSON(fiber.Map{"error": "Bu dizini tarama yetkiniz yok"})
+			}
+			scanPath = input.Path
+		} else {
+			scanPath = homeDir + "/public_html"
+		}
+	}
+
+	// Check if ClamAV is installed
+	if _, err := exec.LookPath("clamscan"); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "ClamAV kurulu değil"})
+	}
+
+	// Run clamscan
+	startTime := time.Now()
+	cmd := exec.Command("clamscan", "-r", "--infected", "--no-summary", scanPath)
+	output, _ := cmd.CombinedOutput()
+	duration := time.Since(startTime)
+
+	// Parse results
+	lines := strings.Split(string(output), "\n")
+	results := []ScanResult{}
+	infectedCount := 0
+	scannedCount := 0
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		if strings.Contains(line, ": ") {
+			parts := strings.SplitN(line, ": ", 2)
+			if len(parts) == 2 {
+				path := parts[0]
+				status := parts[1]
+
+				result := ScanResult{
+					Path:      path,
+					ScannedAt: time.Now().Format("2006-01-02 15:04:05"),
+				}
+
+				if strings.Contains(status, "FOUND") {
+					result.Status = "infected"
+					result.Threat = strings.TrimSuffix(status, " FOUND")
+					infectedCount++
+				} else if strings.Contains(status, "OK") {
+					result.Status = "clean"
+					scannedCount++
+					continue // Don't include clean files in results to reduce noise
+				} else if strings.Contains(status, "ERROR") {
+					result.Status = "error"
+					result.Threat = status
+				}
+
+				if result.Status != "clean" {
+					results = append(results, result)
+				}
+				scannedCount++
+			}
+		}
+	}
+
+	// Get total file count
+	countCmd := exec.Command("find", scanPath, "-type", "f")
+	countOutput, _ := countCmd.Output()
+	totalFiles := len(strings.Split(strings.TrimSpace(string(countOutput)), "\n"))
+	if totalFiles == 1 && string(countOutput) == "" {
+		totalFiles = 0
+	}
+
+	summary := ScanSummary{
+		TotalFiles:    totalFiles,
+		ScannedFiles:  scannedCount,
+		InfectedFiles: infectedCount,
+		Errors:        0,
+		Duration:      duration.Round(time.Second).String(),
+		Results:       results,
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    summary,
+	})
+}
+
+// QuickScan performs a quick scan of common malware locations
+func (h *Handler) QuickScan(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(int64)
+
+	// Get user's home directory
+	var username string
+	err := h.db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&username)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Kullanıcı bulunamadı"})
+	}
+
+	homeDir := "/home/" + username
+	scanPaths := []string{
+		homeDir + "/public_html",
+	}
+
+	// Check if ClamAV is installed
+	if _, err := exec.LookPath("clamscan"); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "ClamAV kurulu değil"})
+	}
+
+	// Run quick scan
+	startTime := time.Now()
+	args := append([]string{"-r", "--infected", "--no-summary"}, scanPaths...)
+	cmd := exec.Command("clamscan", args...)
+	output, _ := cmd.CombinedOutput()
+	duration := time.Since(startTime)
+
+	// Parse results
+	lines := strings.Split(string(output), "\n")
+	results := []ScanResult{}
+	infectedCount := 0
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || !strings.Contains(line, "FOUND") {
+			continue
+		}
+
+		parts := strings.SplitN(line, ": ", 2)
+		if len(parts) == 2 {
+			result := ScanResult{
+				Path:      parts[0],
+				Status:    "infected",
+				Threat:    strings.TrimSuffix(parts[1], " FOUND"),
+				ScannedAt: time.Now().Format("2006-01-02 15:04:05"),
+			}
+			results = append(results, result)
+			infectedCount++
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": fiber.Map{
+			"infected_count": infectedCount,
+			"duration":       duration.Round(time.Second).String(),
+			"results":        results,
+		},
+	})
+}
+
+// QuarantineFile moves an infected file to quarantine
+func (h *Handler) QuarantineFile(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(int64)
+	role := c.Locals("role").(string)
+
+	var input struct {
+		Path string `json:"path"`
+	}
+
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Geçersiz veri"})
+	}
+
+	if input.Path == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Dosya yolu gerekli"})
+	}
+
+	// Get user's home directory
+	var username string
+	err := h.db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&username)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Kullanıcı bulunamadı"})
+	}
+
+	homeDir := "/home/" + username
+
+	// Security check - user can only quarantine files in their home directory
+	if role != "admin" && !strings.HasPrefix(input.Path, homeDir) {
+		return c.Status(403).JSON(fiber.Map{"error": "Bu dosyayı karantinaya alma yetkiniz yok"})
+	}
+
+	// Check if file exists
+	if _, err := os.Stat(input.Path); os.IsNotExist(err) {
+		return c.Status(404).JSON(fiber.Map{"error": "Dosya bulunamadı"})
+	}
+
+	// Create quarantine directory
+	quarantineDir := homeDir + "/.quarantine"
+	if err := os.MkdirAll(quarantineDir, 0700); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Karantina dizini oluşturulamadı"})
+	}
+
+	// Move file to quarantine with timestamp
+	fileName := strings.ReplaceAll(input.Path, "/", "_")
+	quarantinePath := quarantineDir + "/" + time.Now().Format("20060102_150405") + "_" + fileName
+
+	if err := os.Rename(input.Path, quarantinePath); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Dosya karantinaya alınamadı: " + err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"success":         true,
+		"message":         "Dosya karantinaya alındı",
+		"quarantine_path": quarantinePath,
+	})
+}
+
+// DeleteInfectedFile permanently deletes an infected file
+func (h *Handler) DeleteInfectedFile(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(int64)
+	role := c.Locals("role").(string)
+
+	var input struct {
+		Path string `json:"path"`
+	}
+
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Geçersiz veri"})
+	}
+
+	if input.Path == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Dosya yolu gerekli"})
+	}
+
+	// Get user's home directory
+	var username string
+	err := h.db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&username)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Kullanıcı bulunamadı"})
+	}
+
+	homeDir := "/home/" + username
+
+	// Security check
+	if role != "admin" && !strings.HasPrefix(input.Path, homeDir) {
+		return c.Status(403).JSON(fiber.Map{"error": "Bu dosyayı silme yetkiniz yok"})
+	}
+
+	// Check if file exists
+	if _, err := os.Stat(input.Path); os.IsNotExist(err) {
+		return c.Status(404).JSON(fiber.Map{"error": "Dosya bulunamadı"})
+	}
+
+	// Delete file
+	if err := os.Remove(input.Path); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Dosya silinemedi: " + err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Dosya silindi",
+	})
+}
+
+// GetQuarantinedFiles lists quarantined files
+func (h *Handler) GetQuarantinedFiles(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(int64)
+
+	// Get user's home directory
+	var username string
+	err := h.db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&username)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Kullanıcı bulunamadı"})
+	}
+
+	quarantineDir := "/home/" + username + "/.quarantine"
+
+	// Check if quarantine directory exists
+	if _, err := os.Stat(quarantineDir); os.IsNotExist(err) {
+		return c.JSON(fiber.Map{
+			"success": true,
+			"data":    []string{},
+		})
+	}
+
+	// List files
+	files, err := os.ReadDir(quarantineDir)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Karantina dizini okunamadı"})
+	}
+
+	quarantinedFiles := []fiber.Map{}
+	for _, file := range files {
+		info, _ := file.Info()
+		quarantinedFiles = append(quarantinedFiles, fiber.Map{
+			"name":           file.Name(),
+			"path":           quarantineDir + "/" + file.Name(),
+			"size":           info.Size(),
+			"quarantined_at": info.ModTime().Format("2006-01-02 15:04:05"),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    quarantinedFiles,
+	})
+}
+
+// RestoreFromQuarantine restores a file from quarantine
+func (h *Handler) RestoreFromQuarantine(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(int64)
+
+	var input struct {
+		QuarantinePath string `json:"quarantine_path"`
+		RestorePath    string `json:"restore_path"`
+	}
+
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Geçersiz veri"})
+	}
+
+	// Get user's home directory
+	var username string
+	err := h.db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&username)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Kullanıcı bulunamadı"})
+	}
+
+	homeDir := "/home/" + username
+	quarantineDir := homeDir + "/.quarantine"
+
+	// Security check
+	if !strings.HasPrefix(input.QuarantinePath, quarantineDir) {
+		return c.Status(403).JSON(fiber.Map{"error": "Geçersiz karantina yolu"})
+	}
+
+	if !strings.HasPrefix(input.RestorePath, homeDir) {
+		return c.Status(403).JSON(fiber.Map{"error": "Dosya sadece home dizinine geri yüklenebilir"})
+	}
+
+	// Check if quarantined file exists
+	if _, err := os.Stat(input.QuarantinePath); os.IsNotExist(err) {
+		return c.Status(404).JSON(fiber.Map{"error": "Karantina dosyası bulunamadı"})
+	}
+
+	// Restore file
+	if err := os.Rename(input.QuarantinePath, input.RestorePath); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Dosya geri yüklenemedi: " + err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Dosya geri yüklendi",
+	})
+}
