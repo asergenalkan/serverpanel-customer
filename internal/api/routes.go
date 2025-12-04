@@ -209,6 +209,12 @@ func SetupRoutes(router fiber.Router, db *database.DB) {
 	protected.Delete("/malware/file", h.DeleteInfectedFile)
 	protected.Get("/malware/quarantine", h.GetQuarantinedFiles)
 	protected.Post("/malware/restore", h.RestoreFromQuarantine)
+	// Background Scanning
+	protected.Post("/malware/scan/start", h.StartBackgroundScan)
+	protected.Get("/malware/scan/status/:id", h.GetScanStatus)
+	protected.Post("/malware/scan/cancel/:id", h.CancelScan)
+	protected.Get("/malware/scan/history", h.GetScanHistory)
+	protected.Get("/malware/scan/active", h.GetActiveScan)
 
 	// Cron Jobs (all authenticated users)
 	protected.Get("/cron/jobs", h.ListCronJobs)

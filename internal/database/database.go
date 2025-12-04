@@ -324,6 +324,25 @@ func (db *DB) migrate() error {
 			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 		)`,
 
+		// Malware Scans table
+		`CREATE TABLE IF NOT EXISTS malware_scans (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			scan_path TEXT NOT NULL,
+			scan_type TEXT DEFAULT 'full',
+			status TEXT DEFAULT 'pending',
+			total_files INTEGER DEFAULT 0,
+			scanned_files INTEGER DEFAULT 0,
+			infected_files INTEGER DEFAULT 0,
+			current_file TEXT,
+			results TEXT,
+			duration INTEGER DEFAULT 0,
+			started_at DATETIME,
+			completed_at DATETIME,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+
 		// Create indexes
 		`CREATE INDEX IF NOT EXISTS idx_cron_jobs_user_id ON cron_jobs(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_dns_records_domain_id ON dns_records(domain_id)`,
@@ -338,6 +357,8 @@ func (db *DB) migrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_mail_queue_user_id ON mail_queue(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_mail_queue_status ON mail_queue(status)`,
 		`CREATE INDEX IF NOT EXISTS idx_mail_queue_scheduled_at ON mail_queue(scheduled_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_malware_scans_user_id ON malware_scans(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_malware_scans_status ON malware_scans(status)`,
 	}
 
 	for _, migration := range migrations {

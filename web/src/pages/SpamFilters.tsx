@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Mail, AlertTriangle, CheckCircle, Trash2, Plus, RefreshCw, Bug, Filter, Search, FolderSearch, FileWarning, Archive } from 'lucide-react';
+import { Shield, Mail, AlertTriangle, CheckCircle, Trash2, Plus, RefreshCw, Bug, Filter, Search, FolderSearch, FileWarning, Archive, History, XCircle, Play, Clock } from 'lucide-react';
 import Layout from '../components/Layout';
 import LoadingAnimation from '../components/LoadingAnimation';
 
@@ -31,7 +31,7 @@ const SpamFiltersPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<'spam' | 'antivirus' | 'scanner' | 'quarantine' | 'whitelist' | 'blacklist'>('spam');
+  const [activeTab, setActiveTab] = useState<'spam' | 'antivirus' | 'scanner' | 'quarantine' | 'history' | 'whitelist' | 'blacklist'>('spam');
   
   const [settings, setSettings] = useState<SpamSettings>({
     enabled: true,
@@ -65,9 +65,19 @@ const SpamFiltersPage: React.FC = () => {
   const [scanPath, setScanPath] = useState('');
   const [scanResults, setScanResults] = useState<any>(null);
   const [quarantinedFiles, setQuarantinedFiles] = useState<any[]>([]);
+  
+  // Background scan state
+  const [activeScan, setActiveScan] = useState<any>(null);
+  const [scanHistory, setScanHistory] = useState<any[]>([]);
+  const [pollInterval, setPollInterval] = useState<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     fetchSettings();
+    checkActiveScan();
+    return () => {
+      if (pollInterval) clearInterval(pollInterval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchSettings = async () => {
@@ -160,42 +170,6 @@ const SpamFiltersPage: React.FC = () => {
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'Bağlantı hatası' });
-    }
-  };
-
-  const runScan = async (quick = false) => {
-    setScanning(true);
-    setScanResults(null);
-    setMessage(null);
-    
-    try {
-      const token = localStorage.getItem('token');
-      const endpoint = quick ? '/api/v1/malware/quick-scan' : '/api/v1/malware/scan';
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ path: scanPath })
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setScanResults(data.data);
-        if (data.data.infected_files > 0 || data.data.infected_count > 0) {
-          setMessage({ type: 'error', text: `Tehdit tespit edildi!` });
-        } else {
-          setMessage({ type: 'success', text: 'Tarama tamamlandı, tehdit bulunamadı' });
-        }
-      } else {
-        const data = await response.json();
-        setMessage({ type: 'error', text: data.error || 'Tarama başarısız' });
-      }
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Bağlantı hatası' });
-    } finally {
-      setScanning(false);
     }
   };
 
@@ -304,6 +278,146 @@ const SpamFiltersPage: React.FC = () => {
     }
   };
 
+  // Background scan functions
+  const checkActiveScan = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/v1/malware/scan/active', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.data) {
+          setActiveScan(data.data);
+          startPolling(data.data.id);
+        }
+      }
+    } catch (error) {
+      console.error('Aktif tarama kontrolü başarısız:', error);
+    }
+  };
+
+  const startPolling = (scanId: number) => {
+    if (pollInterval) clearInterval(pollInterval);
+    
+    const interval = setInterval(async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/v1/malware/scan/status/${scanId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setActiveScan(data.data);
+          
+          if (data.data.status !== 'running') {
+            clearInterval(interval);
+            setPollInterval(null);
+            setScanResults(data.data);
+            setActiveScan(null);
+            if (data.data.status === 'completed') {
+              setMessage({ type: 'success', text: `Tarama tamamlandı. ${data.data.infected_files} tehdit bulundu.` });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Tarama durumu alınamadı:', error);
+      }
+    }, 2000);
+    
+    setPollInterval(interval);
+  };
+
+  const startBackgroundScan = async (scanType: 'quick' | 'full') => {
+    setScanning(true);
+    setScanResults(null);
+    setMessage(null);
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/v1/malware/scan/start', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ path: scanPath, scan_type: scanType })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setActiveScan(data.data);
+        startPolling(data.data.scan_id);
+        setMessage({ type: 'success', text: 'Tarama başlatıldı' });
+      } else {
+        const data = await response.json();
+        setMessage({ type: 'error', text: data.error || 'Tarama başlatılamadı' });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Bağlantı hatası' });
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const cancelScan = async () => {
+    if (!activeScan) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/v1/malware/scan/cancel/${activeScan.id}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Tarama iptal edildi' });
+        setActiveScan(null);
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          setPollInterval(null);
+        }
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'İptal başarısız' });
+    }
+  };
+
+  const fetchScanHistory = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/v1/malware/scan/history', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setScanHistory(data.data || []);
+      }
+    } catch (error) {
+      console.error('Tarama geçmişi yüklenemedi:', error);
+    }
+  };
+
+  const viewScanDetails = async (scanId: number) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/v1/malware/scan/status/${scanId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setScanResults(data.data);
+        setActiveTab('scanner');
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Detaylar yüklenemedi' });
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -393,13 +507,18 @@ const SpamFiltersPage: React.FC = () => {
               { id: 'spam', label: 'Spam Ayarları', icon: Mail },
               { id: 'antivirus', label: 'Antivirüs', icon: Bug },
               { id: 'scanner', label: 'Malware Tarama', icon: Search },
+              { id: 'history', label: 'Tarama Geçmişi', icon: History },
               { id: 'quarantine', label: 'Karantina', icon: Archive },
               { id: 'whitelist', label: 'Beyaz Liste', icon: CheckCircle },
               { id: 'blacklist', label: 'Kara Liste', icon: AlertTriangle }
             ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => {
+                  setActiveTab(tab.id as any);
+                  if (tab.id === 'history') fetchScanHistory();
+                  if (tab.id === 'quarantine') fetchQuarantinedFiles();
+                }}
                 className={`flex items-center space-x-2 px-6 py-4 border-b-2 font-medium text-sm ${
                   activeTab === tab.id
                     ? 'border-orange-500 text-orange-500'
@@ -570,6 +689,7 @@ const SpamFiltersPage: React.FC = () => {
                 </div>
               ) : (
                 <>
+                  {/* Scan Controls */}
                   <div className="flex items-center space-x-4">
                     <div className="flex-1">
                       <input
@@ -578,23 +698,24 @@ const SpamFiltersPage: React.FC = () => {
                         onChange={(e) => setScanPath(e.target.value)}
                         placeholder="Taranacak dizin yolu (Admin: /home, Kullanıcı: public_html)"
                         className="w-full px-4 py-2 border border-border rounded-lg bg-background focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                        disabled={!!activeScan}
                       />
                     </div>
                     <button
-                      onClick={() => runScan(true)}
-                      disabled={scanning}
+                      onClick={() => startBackgroundScan('quick')}
+                      disabled={scanning || !!activeScan}
                       className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 flex items-center space-x-2"
                     >
                       {scanning ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />
                       ) : (
-                        <Search className="w-4 h-4" />
+                        <Play className="w-4 h-4" />
                       )}
                       <span>Hızlı Tara</span>
                     </button>
                     <button
-                      onClick={() => runScan(false)}
-                      disabled={scanning}
+                      onClick={() => startBackgroundScan('full')}
+                      disabled={scanning || !!activeScan}
                       className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 flex items-center space-x-2"
                     >
                       {scanning ? (
@@ -606,13 +727,61 @@ const SpamFiltersPage: React.FC = () => {
                     </button>
                   </div>
 
-                  {scanning && (
-                    <div className="p-6 bg-blue-500/10 rounded-lg text-center">
-                      <RefreshCw className="w-12 h-12 text-blue-500 mx-auto mb-3 animate-spin" />
-                      <h3 className="text-lg font-medium">Tarama Devam Ediyor...</h3>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Bu işlem dosya sayısına bağlı olarak birkaç dakika sürebilir.
-                      </p>
+                  {/* Active Scan Progress */}
+                  {activeScan && (
+                    <div className="p-6 bg-blue-500/10 rounded-lg">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <RefreshCw className="w-8 h-8 text-blue-500 animate-spin" />
+                          <div>
+                            <h3 className="text-lg font-medium">Tarama Devam Ediyor</h3>
+                            <p className="text-sm text-muted-foreground">{activeScan.path}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={cancelScan}
+                          className="px-3 py-1 bg-destructive text-white rounded hover:bg-destructive/80 text-sm flex items-center space-x-1"
+                        >
+                          <XCircle className="w-4 h-4" />
+                          <span>İptal</span>
+                        </button>
+                      </div>
+                      
+                      {/* Progress Bar */}
+                      <div className="mb-4">
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>İlerleme</span>
+                          <span>{activeScan.scanned_files} / {activeScan.total_files} dosya</span>
+                        </div>
+                        <div className="w-full bg-muted rounded-full h-3">
+                          <div 
+                            className="bg-blue-500 h-3 rounded-full transition-all duration-300"
+                            style={{ width: `${activeScan.total_files > 0 ? (activeScan.scanned_files / activeScan.total_files) * 100 : 0}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Current File */}
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Taranan: </span>
+                        <span className="font-mono text-xs truncate block">{activeScan.current_file || '...'}</span>
+                      </div>
+
+                      {/* Stats */}
+                      <div className="grid grid-cols-3 gap-4 mt-4">
+                        <div className="text-center">
+                          <p className="text-2xl font-bold">{activeScan.scanned_files}</p>
+                          <p className="text-xs text-muted-foreground">Taranan</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-2xl font-bold text-destructive">{activeScan.infected_files || 0}</p>
+                          <p className="text-xs text-muted-foreground">Tehdit</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-2xl font-bold">{activeScan.duration || 0}s</p>
+                          <p className="text-xs text-muted-foreground">Süre</p>
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -733,6 +902,95 @@ const SpamFiltersPage: React.FC = () => {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* History Tab */}
+          {activeTab === 'history' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Tüm malware tarama geçmişi burada listelenir.
+                </p>
+                <button
+                  onClick={fetchScanHistory}
+                  className="px-3 py-1 bg-muted text-foreground rounded hover:bg-muted/80 text-sm flex items-center space-x-1"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Yenile</span>
+                </button>
+              </div>
+
+              {scanHistory.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  <History className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>Henüz tarama yapılmamış</p>
+                </div>
+              ) : (
+                <div className="border border-border rounded-lg overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-medium">Tarih</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium">Dizin</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium">Tür</th>
+                        <th className="px-4 py-3 text-center text-sm font-medium">Dosya</th>
+                        <th className="px-4 py-3 text-center text-sm font-medium">Tehdit</th>
+                        <th className="px-4 py-3 text-center text-sm font-medium">Süre</th>
+                        <th className="px-4 py-3 text-center text-sm font-medium">Durum</th>
+                        <th className="px-4 py-3 text-center text-sm font-medium">İşlem</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {scanHistory.map((scan) => (
+                        <tr key={scan.id} className="hover:bg-muted/30">
+                          <td className="px-4 py-3 text-sm">
+                            <div className="flex items-center space-x-1">
+                              <Clock className="w-3 h-3 text-muted-foreground" />
+                              <span>{scan.started_at || '-'}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm font-mono truncate max-w-[200px]">{scan.path}</td>
+                          <td className="px-4 py-3 text-sm">
+                            <span className={`px-2 py-1 rounded text-xs ${scan.scan_type === 'quick' ? 'bg-blue-500/10 text-blue-500' : 'bg-orange-500/10 text-orange-500'}`}>
+                              {scan.scan_type === 'quick' ? 'Hızlı' : 'Tam'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-center">{scan.scanned_files}/{scan.total_files}</td>
+                          <td className="px-4 py-3 text-sm text-center">
+                            <span className={scan.infected_files > 0 ? 'text-destructive font-bold' : 'text-green-500'}>
+                              {scan.infected_files}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-center">{scan.duration}s</td>
+                          <td className="px-4 py-3 text-sm text-center">
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              scan.status === 'completed' ? 'bg-green-500/10 text-green-500' :
+                              scan.status === 'running' ? 'bg-blue-500/10 text-blue-500' :
+                              scan.status === 'cancelled' ? 'bg-yellow-500/10 text-yellow-500' :
+                              'bg-destructive/10 text-destructive'
+                            }`}>
+                              {scan.status === 'completed' ? 'Tamamlandı' :
+                               scan.status === 'running' ? 'Devam Ediyor' :
+                               scan.status === 'cancelled' ? 'İptal Edildi' : 'Hata'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-center">
+                            {scan.status === 'completed' && scan.infected_files > 0 && (
+                              <button
+                                onClick={() => viewScanDetails(scan.id)}
+                                className="px-2 py-1 bg-muted text-foreground rounded hover:bg-muted/80 text-xs"
+                              >
+                                Detay
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>

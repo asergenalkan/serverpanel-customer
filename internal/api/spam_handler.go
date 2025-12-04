@@ -1,15 +1,43 @@
 package api
 
 import (
+	"bufio"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
+
+// Global scan manager for tracking active scans
+var scanManager = &ScanManager{
+	activeScans: make(map[int64]*ActiveScan),
+}
+
+// ScanManager manages active background scans
+type ScanManager struct {
+	mu          sync.RWMutex
+	activeScans map[int64]*ActiveScan // key: scan ID
+}
+
+// ActiveScan represents a running scan
+type ActiveScan struct {
+	ID           int64
+	UserID       int64
+	Path         string
+	Status       string
+	TotalFiles   int
+	ScannedFiles int
+	CurrentFile  string
+	Results      []ScanResult
+	StartedAt    time.Time
+	Cancel       chan struct{}
+}
 
 // SpamSettings represents spam filter settings for a user
 type SpamSettings struct {
@@ -713,5 +741,459 @@ func (h *Handler) RestoreFromQuarantine(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"success": true,
 		"message": "Dosya geri yüklendi",
+	})
+}
+
+// ==================== BACKGROUND SCANNING ====================
+
+// StartBackgroundScan starts a malware scan in background
+func (h *Handler) StartBackgroundScan(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(int64)
+	role := c.Locals("role").(string)
+
+	var input struct {
+		Path     string `json:"path"`
+		ScanType string `json:"scan_type"` // quick or full
+	}
+
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Geçersiz veri"})
+	}
+
+	if input.ScanType == "" {
+		input.ScanType = "full"
+	}
+
+	// Get user's home directory
+	var username string
+	err := h.db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&username)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Kullanıcı bulunamadı"})
+	}
+
+	// Determine scan path
+	var scanPath string
+	if role == "admin" {
+		if input.Path != "" {
+			scanPath = input.Path
+		} else {
+			scanPath = "/home"
+		}
+	} else {
+		homeDir := "/home/" + username
+		if input.Path != "" {
+			if !strings.HasPrefix(input.Path, homeDir) {
+				return c.Status(403).JSON(fiber.Map{"error": "Bu dizini tarama yetkiniz yok"})
+			}
+			scanPath = input.Path
+		} else {
+			scanPath = homeDir + "/public_html"
+		}
+	}
+
+	// Check if ClamAV is installed
+	if _, err := exec.LookPath("clamscan"); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "ClamAV kurulu değil"})
+	}
+
+	// Check if user already has an active scan
+	scanManager.mu.RLock()
+	for _, scan := range scanManager.activeScans {
+		if scan.UserID == userID && scan.Status == "running" {
+			scanManager.mu.RUnlock()
+			return c.Status(400).JSON(fiber.Map{"error": "Zaten aktif bir taramanız var"})
+		}
+	}
+	scanManager.mu.RUnlock()
+
+	// Count total files
+	totalFiles := 0
+	countCmd := exec.Command("find", scanPath, "-type", "f")
+	countOutput, _ := countCmd.Output()
+	if len(countOutput) > 0 {
+		totalFiles = len(strings.Split(strings.TrimSpace(string(countOutput)), "\n"))
+	}
+
+	// Create scan record in database
+	result, err := h.db.Exec(`
+		INSERT INTO malware_scans (user_id, scan_path, scan_type, status, total_files, started_at)
+		VALUES (?, ?, ?, 'running', ?, CURRENT_TIMESTAMP)
+	`, userID, scanPath, input.ScanType, totalFiles)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Tarama başlatılamadı"})
+	}
+
+	scanID, _ := result.LastInsertId()
+
+	// Create active scan
+	activeScan := &ActiveScan{
+		ID:         scanID,
+		UserID:     userID,
+		Path:       scanPath,
+		Status:     "running",
+		TotalFiles: totalFiles,
+		StartedAt:  time.Now(),
+		Cancel:     make(chan struct{}),
+		Results:    []ScanResult{},
+	}
+
+	scanManager.mu.Lock()
+	scanManager.activeScans[scanID] = activeScan
+	scanManager.mu.Unlock()
+
+	// Start background scan
+	go h.runBackgroundScan(activeScan)
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": fiber.Map{
+			"scan_id":     scanID,
+			"status":      "running",
+			"total_files": totalFiles,
+			"path":        scanPath,
+		},
+	})
+}
+
+// runBackgroundScan executes the scan in background
+func (h *Handler) runBackgroundScan(scan *ActiveScan) {
+	defer func() {
+		// Cleanup
+		scanManager.mu.Lock()
+		delete(scanManager.activeScans, scan.ID)
+		scanManager.mu.Unlock()
+	}()
+
+	startTime := time.Now()
+
+	// Run clamscan with progress output
+	cmd := exec.Command("clamscan", "-r", "--infected", scan.Path)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		h.updateScanStatus(scan.ID, "error", 0, "Tarama başlatılamadı")
+		return
+	}
+
+	if err := cmd.Start(); err != nil {
+		h.updateScanStatus(scan.ID, "error", 0, "Tarama başlatılamadı")
+		return
+	}
+
+	scanner := bufio.NewScanner(stdout)
+	scannedCount := 0
+	infectedCount := 0
+
+	for scanner.Scan() {
+		select {
+		case <-scan.Cancel:
+			cmd.Process.Kill()
+			h.updateScanStatus(scan.ID, "cancelled", int(time.Since(startTime).Seconds()), "")
+			return
+		default:
+		}
+
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+
+		// Update current file
+		if strings.Contains(line, ": ") {
+			parts := strings.SplitN(line, ": ", 2)
+			if len(parts) == 2 {
+				filePath := parts[0]
+				status := parts[1]
+
+				scan.CurrentFile = filePath
+				scannedCount++
+				scan.ScannedFiles = scannedCount
+
+				if strings.Contains(status, "FOUND") {
+					infectedCount++
+					scan.Results = append(scan.Results, ScanResult{
+						Path:      filePath,
+						Status:    "infected",
+						Threat:    strings.TrimSuffix(status, " FOUND"),
+						ScannedAt: time.Now().Format("2006-01-02 15:04:05"),
+					})
+				}
+
+				// Update database every 100 files
+				if scannedCount%100 == 0 {
+					h.db.Exec(`
+						UPDATE malware_scans 
+						SET scanned_files = ?, infected_files = ?, current_file = ?
+						WHERE id = ?
+					`, scannedCount, infectedCount, filePath, scan.ID)
+				}
+			}
+		}
+	}
+
+	cmd.Wait()
+	duration := int(time.Since(startTime).Seconds())
+
+	// Save results to database
+	resultsJSON, _ := json.Marshal(scan.Results)
+	h.db.Exec(`
+		UPDATE malware_scans 
+		SET status = 'completed', scanned_files = ?, infected_files = ?, 
+		    results = ?, duration = ?, completed_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`, scannedCount, infectedCount, string(resultsJSON), duration, scan.ID)
+
+	scan.Status = "completed"
+}
+
+// updateScanStatus updates scan status in database
+func (h *Handler) updateScanStatus(scanID int64, status string, duration int, errorMsg string) {
+	if errorMsg != "" {
+		h.db.Exec(`
+			UPDATE malware_scans 
+			SET status = ?, duration = ?, results = ?, completed_at = CURRENT_TIMESTAMP
+			WHERE id = ?
+		`, status, duration, fmt.Sprintf(`{"error": "%s"}`, errorMsg), scanID)
+	} else {
+		h.db.Exec(`
+			UPDATE malware_scans 
+			SET status = ?, duration = ?, completed_at = CURRENT_TIMESTAMP
+			WHERE id = ?
+		`, status, duration, scanID)
+	}
+}
+
+// GetScanStatus returns current scan status
+func (h *Handler) GetScanStatus(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(int64)
+	scanID := c.Params("id")
+
+	// First check active scans
+	scanManager.mu.RLock()
+	for _, scan := range scanManager.activeScans {
+		if fmt.Sprintf("%d", scan.ID) == scanID && scan.UserID == userID {
+			scanManager.mu.RUnlock()
+			return c.JSON(fiber.Map{
+				"success": true,
+				"data": fiber.Map{
+					"id":             scan.ID,
+					"status":         scan.Status,
+					"total_files":    scan.TotalFiles,
+					"scanned_files":  scan.ScannedFiles,
+					"infected_files": len(scan.Results),
+					"current_file":   scan.CurrentFile,
+					"results":        scan.Results,
+					"duration":       int(time.Since(scan.StartedAt).Seconds()),
+				},
+			})
+		}
+	}
+	scanManager.mu.RUnlock()
+
+	// Check database for completed scan
+	var scan struct {
+		ID            int64
+		ScanPath      string
+		ScanType      string
+		Status        string
+		TotalFiles    int
+		ScannedFiles  int
+		InfectedFiles int
+		CurrentFile   sql.NullString
+		Results       sql.NullString
+		Duration      int
+		StartedAt     sql.NullTime
+		CompletedAt   sql.NullTime
+	}
+
+	err := h.db.QueryRow(`
+		SELECT id, scan_path, scan_type, status, total_files, scanned_files, 
+		       infected_files, current_file, results, duration, started_at, completed_at
+		FROM malware_scans WHERE id = ? AND user_id = ?
+	`, scanID, userID).Scan(
+		&scan.ID, &scan.ScanPath, &scan.ScanType, &scan.Status,
+		&scan.TotalFiles, &scan.ScannedFiles, &scan.InfectedFiles,
+		&scan.CurrentFile, &scan.Results, &scan.Duration,
+		&scan.StartedAt, &scan.CompletedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return c.Status(404).JSON(fiber.Map{"error": "Tarama bulunamadı"})
+	}
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Veritabanı hatası"})
+	}
+
+	// Parse results
+	var results []ScanResult
+	if scan.Results.Valid && scan.Results.String != "" {
+		json.Unmarshal([]byte(scan.Results.String), &results)
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": fiber.Map{
+			"id":             scan.ID,
+			"path":           scan.ScanPath,
+			"scan_type":      scan.ScanType,
+			"status":         scan.Status,
+			"total_files":    scan.TotalFiles,
+			"scanned_files":  scan.ScannedFiles,
+			"infected_files": scan.InfectedFiles,
+			"current_file":   scan.CurrentFile.String,
+			"results":        results,
+			"duration":       scan.Duration,
+		},
+	})
+}
+
+// CancelScan cancels an active scan
+func (h *Handler) CancelScan(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(int64)
+	scanID := c.Params("id")
+
+	scanManager.mu.Lock()
+	defer scanManager.mu.Unlock()
+
+	for _, scan := range scanManager.activeScans {
+		if fmt.Sprintf("%d", scan.ID) == scanID && scan.UserID == userID {
+			close(scan.Cancel)
+			return c.JSON(fiber.Map{
+				"success": true,
+				"message": "Tarama iptal edildi",
+			})
+		}
+	}
+
+	return c.Status(404).JSON(fiber.Map{"error": "Aktif tarama bulunamadı"})
+}
+
+// GetScanHistory returns scan history for user
+func (h *Handler) GetScanHistory(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(int64)
+	role := c.Locals("role").(string)
+
+	var query string
+	var args []interface{}
+
+	if role == "admin" {
+		// Admin can see all scans
+		query = `
+			SELECT ms.id, ms.user_id, u.username, ms.scan_path, ms.scan_type, ms.status, 
+			       ms.total_files, ms.scanned_files, ms.infected_files, ms.duration, 
+			       ms.started_at, ms.completed_at
+			FROM malware_scans ms
+			LEFT JOIN users u ON ms.user_id = u.id
+			ORDER BY ms.created_at DESC
+			LIMIT 50
+		`
+	} else {
+		query = `
+			SELECT ms.id, ms.user_id, u.username, ms.scan_path, ms.scan_type, ms.status, 
+			       ms.total_files, ms.scanned_files, ms.infected_files, ms.duration, 
+			       ms.started_at, ms.completed_at
+			FROM malware_scans ms
+			LEFT JOIN users u ON ms.user_id = u.id
+			WHERE ms.user_id = ?
+			ORDER BY ms.created_at DESC
+			LIMIT 50
+		`
+		args = append(args, userID)
+	}
+
+	rows, err := h.db.Query(query, args...)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Veritabanı hatası"})
+	}
+	defer rows.Close()
+
+	var scans []fiber.Map
+	for rows.Next() {
+		var scan struct {
+			ID            int64
+			UserID        int64
+			Username      sql.NullString
+			ScanPath      string
+			ScanType      string
+			Status        string
+			TotalFiles    int
+			ScannedFiles  int
+			InfectedFiles int
+			Duration      int
+			StartedAt     sql.NullTime
+			CompletedAt   sql.NullTime
+		}
+
+		err := rows.Scan(
+			&scan.ID, &scan.UserID, &scan.Username, &scan.ScanPath, &scan.ScanType,
+			&scan.Status, &scan.TotalFiles, &scan.ScannedFiles, &scan.InfectedFiles,
+			&scan.Duration, &scan.StartedAt, &scan.CompletedAt,
+		)
+		if err != nil {
+			continue
+		}
+
+		startedAt := ""
+		if scan.StartedAt.Valid {
+			startedAt = scan.StartedAt.Time.Format("2006-01-02 15:04:05")
+		}
+		completedAt := ""
+		if scan.CompletedAt.Valid {
+			completedAt = scan.CompletedAt.Time.Format("2006-01-02 15:04:05")
+		}
+
+		scans = append(scans, fiber.Map{
+			"id":             scan.ID,
+			"user_id":        scan.UserID,
+			"username":       scan.Username.String,
+			"path":           scan.ScanPath,
+			"scan_type":      scan.ScanType,
+			"status":         scan.Status,
+			"total_files":    scan.TotalFiles,
+			"scanned_files":  scan.ScannedFiles,
+			"infected_files": scan.InfectedFiles,
+			"duration":       scan.Duration,
+			"started_at":     startedAt,
+			"completed_at":   completedAt,
+		})
+	}
+
+	if scans == nil {
+		scans = []fiber.Map{}
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    scans,
+	})
+}
+
+// GetActiveScan returns the active scan for user (if any)
+func (h *Handler) GetActiveScan(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(int64)
+
+	scanManager.mu.RLock()
+	defer scanManager.mu.RUnlock()
+
+	for _, scan := range scanManager.activeScans {
+		if scan.UserID == userID && scan.Status == "running" {
+			return c.JSON(fiber.Map{
+				"success": true,
+				"data": fiber.Map{
+					"id":             scan.ID,
+					"status":         scan.Status,
+					"path":           scan.Path,
+					"total_files":    scan.TotalFiles,
+					"scanned_files":  scan.ScannedFiles,
+					"infected_files": len(scan.Results),
+					"current_file":   scan.CurrentFile,
+					"duration":       int(time.Since(scan.StartedAt).Seconds()),
+				},
+			})
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    nil,
 	})
 }
