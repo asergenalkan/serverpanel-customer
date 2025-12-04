@@ -16,23 +16,23 @@ import (
 
 // Fail2banStatus represents fail2ban service status
 type Fail2banStatus struct {
-	Running     bool          `json:"running"`
-	Version     string        `json:"version"`
-	Jails       []JailInfo    `json:"jails"`
-	TotalBanned int           `json:"total_banned"`
+	Running     bool       `json:"running"`
+	Version     string     `json:"version"`
+	Jails       []JailInfo `json:"jails"`
+	TotalBanned int        `json:"total_banned"`
 }
 
 // JailInfo represents a fail2ban jail
 type JailInfo struct {
-	Name          string   `json:"name"`
-	Enabled       bool     `json:"enabled"`
-	CurrentlyBanned int    `json:"currently_banned"`
-	TotalBanned   int      `json:"total_banned"`
-	BannedIPs     []string `json:"banned_ips"`
-	Filter        string   `json:"filter"`
-	MaxRetry      int      `json:"max_retry"`
-	BanTime       int      `json:"ban_time"`
-	FindTime      int      `json:"find_time"`
+	Name            string   `json:"name"`
+	Enabled         bool     `json:"enabled"`
+	CurrentlyBanned int      `json:"currently_banned"`
+	TotalBanned     int      `json:"total_banned"`
+	BannedIPs       []string `json:"banned_ips"`
+	Filter          string   `json:"filter"`
+	MaxRetry        int      `json:"max_retry"`
+	BanTime         int      `json:"ban_time"`
+	FindTime        int      `json:"find_time"`
 }
 
 // GetFail2banStatus returns fail2ban status and jail information
@@ -441,7 +441,7 @@ func (h *Handler) GetFirewallStatus(c *fiber.Ctx) error {
 	if err == nil {
 		lines := strings.Split(string(output), "\n")
 		ruleRegex := regexp.MustCompile(`\[\s*(\d+)\]\s+(.+?)\s+(ALLOW|DENY|REJECT|LIMIT)\s+(IN|OUT)?\s*(.*)`)
-		
+
 		for _, line := range lines {
 			matches := ruleRegex.FindStringSubmatch(line)
 			if len(matches) >= 4 {
@@ -510,7 +510,7 @@ func (h *Handler) AddFirewallRule(c *fiber.Ctx) error {
 
 	// Build command
 	args := []string{}
-	
+
 	if req.Action == "" {
 		req.Action = "allow"
 	}
@@ -571,18 +571,54 @@ func (h *Handler) ToggleFirewall(c *fiber.Ctx) error {
 		})
 	}
 
-	var cmd *exec.Cmd
 	if req.Enable {
-		cmd = exec.Command("ufw", "--force", "enable")
-	} else {
-		cmd = exec.Command("ufw", "--force", "disable")
-	}
+		// Etkinleştirmeden önce varsayılan portları aç
+		defaultPorts := []string{
+			"22/tcp",   // SSH
+			"80/tcp",   // HTTP
+			"443/tcp",  // HTTPS
+			"8443/tcp", // ServerPanel
+			"21/tcp",   // FTP
+			"25/tcp",   // SMTP
+			"465/tcp",  // SMTPS
+			"587/tcp",  // Submission
+			"110/tcp",  // POP3
+			"995/tcp",  // POP3S
+			"143/tcp",  // IMAP
+			"993/tcp",  // IMAPS
+			"53/tcp",   // DNS
+			"53/udp",   // DNS
+			"3306/tcp", // MySQL
+		}
 
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"success": false,
-			"error":   "İşlem başarısız: " + string(output),
-		})
+		// Varsayılan politikaları ayarla
+		exec.Command("ufw", "default", "deny", "incoming").Run()
+		exec.Command("ufw", "default", "allow", "outgoing").Run()
+
+		// Varsayılan portları aç
+		for _, port := range defaultPorts {
+			exec.Command("ufw", "allow", port).Run()
+		}
+
+		// Passive FTP port aralığı
+		exec.Command("ufw", "allow", "30000:31000/tcp").Run()
+
+		// Şimdi etkinleştir
+		cmd := exec.Command("ufw", "--force", "enable")
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"success": false,
+				"error":   "Firewall etkinleştirilemedi: " + string(output),
+			})
+		}
+	} else {
+		cmd := exec.Command("ufw", "--force", "disable")
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"success": false,
+				"error":   "Firewall devre dışı bırakılamadı: " + string(output),
+			})
+		}
 	}
 
 	return c.JSON(fiber.Map{

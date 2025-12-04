@@ -338,38 +338,13 @@ FAIL2BAN_EOF
         log_warn "Fail2ban kurulamadı"
     fi
     
-    # UFW Firewall kurulumu
+    # UFW Firewall kurulumu (sadece kurulum, etkinleştirme panelden yapılacak)
     log_progress "UFW Firewall kuruluyor"
     DEBIAN_FRONTEND=noninteractive apt-get install -y ufw > /dev/null 2>&1
     if command -v ufw &> /dev/null; then
-        # Varsayılan kurallar
-        ufw default deny incoming > /dev/null 2>&1
-        ufw default allow outgoing > /dev/null 2>&1
-        # Gerekli portları aç
-        ufw allow 22/tcp > /dev/null 2>&1      # SSH
-        ufw allow 80/tcp > /dev/null 2>&1      # HTTP
-        ufw allow 443/tcp > /dev/null 2>&1     # HTTPS
-        ufw allow 8443/tcp > /dev/null 2>&1    # ServerPanel
-        ufw allow 21/tcp > /dev/null 2>&1      # FTP
-        ufw allow 25/tcp > /dev/null 2>&1      # SMTP
-        ufw allow 465/tcp > /dev/null 2>&1     # SMTPS
-        ufw allow 587/tcp > /dev/null 2>&1     # Submission
-        ufw allow 110/tcp > /dev/null 2>&1     # POP3
-        ufw allow 995/tcp > /dev/null 2>&1     # POP3S
-        ufw allow 143/tcp > /dev/null 2>&1     # IMAP
-        ufw allow 993/tcp > /dev/null 2>&1     # IMAPS
-        ufw allow 53/tcp > /dev/null 2>&1      # DNS
-        ufw allow 53/udp > /dev/null 2>&1      # DNS
-        ufw allow 3306/tcp > /dev/null 2>&1    # MySQL (localhost only recommended)
-        # Passive FTP ports
-        ufw allow 30000:31000/tcp > /dev/null 2>&1
-        # UFW'yi etkinleştir (non-interactive)
-        echo "y" | ufw enable > /dev/null 2>&1
-        if ufw status | grep -q "active"; then
-            log_done "UFW Firewall kuruldu ve yapılandırıldı"
-        else
-            log_warn "UFW etkinleştirilemedi"
-        fi
+        # UFW kuruldu ama ETKİNLEŞTİRİLMEDİ
+        # Kullanıcı panelden etkinleştirdiğinde varsayılan portlar otomatik açılacak
+        log_done "UFW Firewall kuruldu (panelden etkinleştirilebilir)"
     else
         log_warn "UFW kurulamadı"
     fi
