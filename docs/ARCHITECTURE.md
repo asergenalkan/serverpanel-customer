@@ -157,7 +157,10 @@ Admin giriş yapar
 │       ├── Tespit/Engelleme modları
 │       ├── Audit log görüntüleme
 │       ├── İstatistikler
-│       └── IP whitelist yönetimi
+│       ├── IP whitelist yönetimi
+│       ├── CMS Exclusion kuralları (WordPress, Joomla, Drupal, PrestaShop, Magento)
+│       ├── Manuel kural devre dışı bırakma (ID ile)
+│       └── Detaylı bilgilendirme UI
 │
 ├── Cron Jobs → ✅ Tam fonksiyonel!
 │   ├── Cron işi oluşturma/düzenleme/silme

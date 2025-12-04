@@ -36,6 +36,9 @@ Bu dosya WHM/cPanel özelliklerini analiz eder ve ServerPanel'e eklenecek özell
   - Audit log görüntüleme ve istatistikler
   - IP whitelist yönetimi
   - Kural listesi görüntüleme
+  - **CMS Exclusion kuralları** (WordPress, Joomla, Drupal, PrestaShop, Magento)
+  - **Manuel kural devre dışı bırakma** (ID ile)
+  - **Detaylı bilgilendirme UI** (ModSecurity nedir, modlar, öneriler)
 - ✅ **Malware Tarama Sistemi**
   - Arka planda tarama (sayfa kapatılabilir)
   - Canlı ilerleme gösterimi (progress bar, dosya adı)
@@ -626,8 +629,15 @@ Henüz yok
   - Audit log görüntüleme
   - İstatistikler (engellenen, loglanan)
   - IP whitelist yönetimi
+  - CMS Exclusion kuralları (WordPress, Joomla, Drupal, PrestaShop, Magento)
+  - Manuel kural devre dışı bırakma (ID ile)
+  - Detaylı bilgilendirme UI
 
 ### Eksik Özellikler
+- [ ] **ModSecurity Gelişmiş**
+  - Domain bazlı ModSecurity yönetimi
+  - Otomatik OWASP CRS güncelleme
+  - Vendor kural seti seçimi (Comodo, Atomicorp)
 - [ ] **Leech Protection**
   - Şifre sızıntı koruması
 
