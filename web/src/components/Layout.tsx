@@ -32,6 +32,9 @@ import {
   Skull,
   Terminal,
   HeartPulse,
+  Lock,
+  ShieldCheck,
+  Key,
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -91,16 +94,25 @@ const systemHealthItems = [
 // Software manager menu item (admin only)
 const softwareMenuItem = { icon: Package, label: 'Yazılım Yöneticisi', href: '/software' };
 
+// Security submenu items (admin only)
+const securityItems = [
+  { icon: ShieldCheck, label: 'Fail2ban Yönetimi', href: '/security/fail2ban' },
+  { icon: Shield, label: 'Firewall (UFW)', href: '/security/firewall' },
+  { icon: Key, label: 'SSH Güvenliği', href: '/security/ssh' },
+];
+
 export default function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const [serverStatusOpen, setServerStatusOpen] = useState(false);
   const [systemHealthOpen, setSystemHealthOpen] = useState(false);
+  const [securityOpen, setSecurityOpen] = useState(false);
 
   // Check if current path is in server status section
   const isServerStatusActive = location.pathname.startsWith('/server/');
   const isSystemHealthActive = location.pathname.startsWith('/system/');
+  const isSecurityActive = location.pathname.startsWith('/security/');
 
   return (
     <div className="min-h-screen bg-[var(--color-page-bg)] transition-colors">
@@ -215,6 +227,44 @@ export default function Layout({ children }: LayoutProps) {
                 {(systemHealthOpen || isSystemHealthActive) && (
                   <div className="ml-4 mt-1 space-y-1">
                     {systemHealthItems.map((item) => (
+                      <Link
+                        key={item.href}
+                        to={item.href}
+                        className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          location.pathname === item.href
+                            ? 'bg-primary/10 text-primary'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                        }`}
+                      >
+                        <item.icon className="w-4 h-4" />
+                        {item.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Security Dropdown */}
+              <div className="mt-2">
+                <button
+                  onClick={() => setSecurityOpen(!securityOpen)}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isSecurityActive
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  }`}
+                >
+                  <Lock className="w-5 h-5" />
+                  Güvenlik
+                  {securityOpen || isSecurityActive ? (
+                    <ChevronDown className="w-4 h-4 ml-auto" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 ml-auto" />
+                  )}
+                </button>
+                {(securityOpen || isSecurityActive) && (
+                  <div className="ml-4 mt-1 space-y-1">
+                    {securityItems.map((item) => (
                       <Link
                         key={item.href}
                         to={item.href}

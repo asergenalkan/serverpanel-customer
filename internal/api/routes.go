@@ -223,5 +223,24 @@ func SetupRoutes(router fiber.Router, db *database.DB) {
 	protected.Post("/system/background-killer", admin, h.SaveBackgroundKillerSettings)
 	protected.Get("/system/users", admin, h.GetSystemUsers)
 
+	// Security (admin only)
+	protected.Get("/security/overview", admin, h.GetSecurityOverview)
+	// Fail2ban
+	protected.Get("/security/fail2ban/status", admin, h.GetFail2banStatus)
+	protected.Post("/security/fail2ban/toggle", admin, h.ToggleFail2ban)
+	protected.Post("/security/fail2ban/ban", admin, h.BanIP)
+	protected.Post("/security/fail2ban/unban", admin, h.UnbanIP)
+	protected.Put("/security/fail2ban/jail", admin, h.UpdateJailSettings)
+	protected.Get("/security/fail2ban/whitelist", admin, h.GetFail2banWhitelist)
+	protected.Put("/security/fail2ban/whitelist", admin, h.UpdateFail2banWhitelist)
+	// Firewall (UFW)
+	protected.Get("/security/firewall/status", admin, h.GetFirewallStatus)
+	protected.Post("/security/firewall/toggle", admin, h.ToggleFirewall)
+	protected.Post("/security/firewall/rule", admin, h.AddFirewallRule)
+	protected.Delete("/security/firewall/rule/:id", admin, h.DeleteFirewallRule)
+	// SSH Security
+	protected.Get("/security/ssh/config", admin, h.GetSSHConfig)
+	protected.Put("/security/ssh/config", admin, h.UpdateSSHConfig)
+
 	// Note: WebSocket route is defined in main.go to avoid SPA fallback conflict
 }

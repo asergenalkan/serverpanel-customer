@@ -27,6 +27,9 @@ import BackgroundKiller from '@/pages/system/BackgroundKiller';
 import ProcessManager from '@/pages/system/ProcessManager';
 import DiskUsage from '@/pages/system/DiskUsage';
 import RunningProcesses from '@/pages/system/RunningProcesses';
+import Fail2ban from '@/pages/security/Fail2ban';
+import Firewall from '@/pages/security/Firewall';
+import SSHSecurity from '@/pages/security/SSHSecurity';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -295,6 +298,30 @@ function AppRoutes() {
         element={
           <AdminRoute>
             <RunningProcesses />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/security/fail2ban"
+        element={
+          <AdminRoute>
+            <Fail2ban />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/security/firewall"
+        element={
+          <AdminRoute>
+            <Firewall />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/security/ssh"
+        element={
+          <AdminRoute>
+            <SSHSecurity />
           </AdminRoute>
         }
       />

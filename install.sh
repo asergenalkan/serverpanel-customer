@@ -269,12 +269,115 @@ install_packages() {
         log_warn "Cron servisi başlatılamadı"
     fi
     
+    # Fail2ban kurulumu (Brute-force koruması)
+    log_progress "Fail2ban kuruluyor"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y fail2ban > /dev/null 2>&1
+    if command -v fail2ban-client &> /dev/null; then
+        # Varsayılan jail yapılandırması
+        cat > /etc/fail2ban/jail.local << 'FAIL2BAN_EOF'
+[DEFAULT]
+bantime = 3600
+findtime = 600
+maxretry = 5
+ignoreip = 127.0.0.1/8 ::1
+
+[sshd]
+enabled = true
+port = ssh
+filter = sshd
+logpath = /var/log/auth.log
+maxretry = 5
+
+[apache-auth]
+enabled = true
+port = http,https
+filter = apache-auth
+logpath = /var/log/apache2/*error.log
+maxretry = 5
+
+[apache-badbots]
+enabled = true
+port = http,https
+filter = apache-badbots
+logpath = /var/log/apache2/*access.log
+maxretry = 2
+
+[postfix]
+enabled = true
+port = smtp,465,submission
+filter = postfix
+logpath = /var/log/mail.log
+maxretry = 5
+
+[dovecot]
+enabled = true
+port = pop3,pop3s,imap,imaps
+filter = dovecot
+logpath = /var/log/mail.log
+maxretry = 5
+
+[pure-ftpd]
+enabled = true
+port = ftp,ftp-data,ftps,ftps-data
+filter = pure-ftpd
+logpath = /var/log/syslog
+maxretry = 5
+FAIL2BAN_EOF
+        systemctl enable fail2ban > /dev/null 2>&1
+        systemctl restart fail2ban > /dev/null 2>&1
+        if systemctl is-active --quiet fail2ban; then
+            log_done "Fail2ban kuruldu ve yapılandırıldı"
+        else
+            log_warn "Fail2ban başlatılamadı"
+        fi
+    else
+        log_warn "Fail2ban kurulamadı"
+    fi
+    
+    # UFW Firewall kurulumu
+    log_progress "UFW Firewall kuruluyor"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y ufw > /dev/null 2>&1
+    if command -v ufw &> /dev/null; then
+        # Varsayılan kurallar
+        ufw default deny incoming > /dev/null 2>&1
+        ufw default allow outgoing > /dev/null 2>&1
+        # Gerekli portları aç
+        ufw allow 22/tcp > /dev/null 2>&1      # SSH
+        ufw allow 80/tcp > /dev/null 2>&1      # HTTP
+        ufw allow 443/tcp > /dev/null 2>&1     # HTTPS
+        ufw allow 8443/tcp > /dev/null 2>&1    # ServerPanel
+        ufw allow 21/tcp > /dev/null 2>&1      # FTP
+        ufw allow 25/tcp > /dev/null 2>&1      # SMTP
+        ufw allow 465/tcp > /dev/null 2>&1     # SMTPS
+        ufw allow 587/tcp > /dev/null 2>&1     # Submission
+        ufw allow 110/tcp > /dev/null 2>&1     # POP3
+        ufw allow 995/tcp > /dev/null 2>&1     # POP3S
+        ufw allow 143/tcp > /dev/null 2>&1     # IMAP
+        ufw allow 993/tcp > /dev/null 2>&1     # IMAPS
+        ufw allow 53/tcp > /dev/null 2>&1      # DNS
+        ufw allow 53/udp > /dev/null 2>&1      # DNS
+        ufw allow 3306/tcp > /dev/null 2>&1    # MySQL (localhost only recommended)
+        # Passive FTP ports
+        ufw allow 30000:31000/tcp > /dev/null 2>&1
+        # UFW'yi etkinleştir (non-interactive)
+        echo "y" | ufw enable > /dev/null 2>&1
+        if ufw status | grep -q "active"; then
+            log_done "UFW Firewall kuruldu ve yapılandırıldı"
+        else
+            log_warn "UFW etkinleştirilemedi"
+        fi
+    else
+        log_warn "UFW kurulamadı"
+    fi
+    
     # Kurulum özeti
     echo ""
     log_info "Apache: $(apache2 -v 2>/dev/null | head -1 | awk '{print $3}')"
     log_info "PHP: $(php -v 2>/dev/null | head -1 | awk '{print $2}')"
     log_info "MySQL: $(mysql --version 2>/dev/null | awk '{print $3}')"
     log_info "Pure-FTPd: $(pure-ftpd --help 2>&1 | head -1 || echo 'kurulu değil')"
+    log_info "Fail2ban: $(fail2ban-client --version 2>/dev/null | head -1 || echo 'kurulu değil')"
+    log_info "UFW: $(ufw version 2>/dev/null | head -1 || echo 'kurulu değil')"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
