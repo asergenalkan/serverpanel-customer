@@ -34,6 +34,7 @@ interface FirewallStatus {
 
 export default function Firewall() {
   const [status, setStatus] = useState<FirewallStatus | null>(null);
+  const [notInstalled, setNotInstalled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
@@ -54,10 +55,15 @@ export default function Firewall() {
     try {
       const response = await api.get('/security/firewall/status');
       if (response.data.success) {
+        setNotInstalled(false);
         setStatus(response.data.data);
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Firewall durumu alınamadı');
+      if (err.response?.status === 500 || err.message?.includes('ufw')) {
+        setNotInstalled(true);
+      } else {
+        setError(err.response?.data?.error || 'Firewall durumu alınamadı');
+      }
     } finally {
       setLoading(false);
     }
@@ -149,6 +155,43 @@ export default function Firewall() {
     return (
       <Layout>
         <LoadingAnimation />
+      </Layout>
+    );
+  }
+
+  // Not installed state
+  if (notInstalled) {
+    return (
+      <Layout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Shield className="w-7 h-7" />
+              Firewall (UFW)
+            </h1>
+            <p className="text-muted-foreground">
+              Uncomplicated Firewall yönetimi
+            </p>
+          </div>
+
+          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-8 text-center">
+            <AlertTriangle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">UFW Kurulu Değil</h2>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              UFW (Uncomplicated Firewall), sunucunuza gelen ve giden trafiği kontrol etmenizi sağlayan bir güvenlik aracıdır.
+            </p>
+            <div className="bg-card border border-border rounded-lg p-4 max-w-lg mx-auto">
+              <p className="text-sm font-medium mb-2">Kurulum Komutu:</p>
+              <code className="block bg-muted p-3 rounded text-sm font-mono text-left">
+                apt-get update && apt-get install -y ufw
+              </code>
+            </div>
+            <Button onClick={fetchStatus} variant="outline" className="mt-4">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Tekrar Kontrol Et
+            </Button>
+          </div>
+        </div>
       </Layout>
     );
   }

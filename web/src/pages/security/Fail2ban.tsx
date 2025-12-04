@@ -30,6 +30,7 @@ interface JailInfo {
 }
 
 interface Fail2banStatus {
+  installed: boolean;
   running: boolean;
   version: string;
   jails: JailInfo[];
@@ -38,6 +39,7 @@ interface Fail2banStatus {
 
 export default function Fail2ban() {
   const [status, setStatus] = useState<Fail2banStatus | null>(null);
+  const [notInstalled, setNotInstalled] = useState(false);
   const [whitelist, setWhitelist] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -65,10 +67,16 @@ export default function Fail2ban() {
     try {
       const response = await api.get('/security/fail2ban/status');
       if (response.data.success) {
-        setStatus(response.data.data);
+        const data = response.data.data;
+        if (!data.version && !data.running && (!data.jails || data.jails.length === 0)) {
+          setNotInstalled(true);
+        } else {
+          setNotInstalled(false);
+          setStatus(data);
+        }
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Fail2ban durumu alınamadı');
+      setNotInstalled(true);
     } finally {
       setLoading(false);
     }
@@ -195,6 +203,47 @@ export default function Fail2ban() {
     return (
       <Layout>
         <LoadingAnimation />
+      </Layout>
+    );
+  }
+
+  // Not installed state
+  if (notInstalled) {
+    return (
+      <Layout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <ShieldCheck className="w-7 h-7" />
+              Fail2ban Yönetimi
+            </h1>
+            <p className="text-muted-foreground">
+              Brute-force saldırılarına karşı koruma
+            </p>
+          </div>
+
+          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-8 text-center">
+            <AlertTriangle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Fail2ban Kurulu Değil</h2>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              Fail2ban, brute-force saldırılarına karşı sunucunuzu koruyan bir güvenlik aracıdır.
+              Bu özelliği kullanmak için lütfen Fail2ban'i kurun.
+            </p>
+            <div className="bg-card border border-border rounded-lg p-4 max-w-lg mx-auto">
+              <p className="text-sm font-medium mb-2">Kurulum Komutu:</p>
+              <code className="block bg-muted p-3 rounded text-sm font-mono text-left">
+                apt-get update && apt-get install -y fail2ban
+              </code>
+            </div>
+            <p className="text-xs text-muted-foreground mt-4">
+              Veya Yazılım Yöneticisi'nden Fail2ban'i kurabilirsiniz.
+            </p>
+            <Button onClick={fetchStatus} variant="outline" className="mt-4">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Tekrar Kontrol Et
+            </Button>
+          </div>
+        </div>
       </Layout>
     );
   }

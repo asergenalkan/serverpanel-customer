@@ -33,6 +33,7 @@ export default function SSHSecurity() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [configError, setConfigError] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -44,9 +45,11 @@ export default function SSHSecurity() {
     try {
       const response = await api.get('/security/ssh/config');
       if (response.data.success) {
+        setConfigError(false);
         setConfig(response.data.data);
       }
     } catch (err: any) {
+      setConfigError(true);
       setError(err.response?.data?.error || 'SSH yapılandırması alınamadı');
     } finally {
       setLoading(false);
@@ -97,6 +100,44 @@ export default function SSHSecurity() {
     return (
       <Layout>
         <LoadingAnimation />
+      </Layout>
+    );
+  }
+
+  // Config error state
+  if (configError) {
+    return (
+      <Layout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Key className="w-7 h-7" />
+              SSH Güvenliği
+            </h1>
+            <p className="text-muted-foreground">
+              SSH sunucu yapılandırması
+            </p>
+          </div>
+
+          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-8 text-center">
+            <AlertTriangle className="w-16 h-16 text-destructive mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">SSH Yapılandırması Okunamadı</h2>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              SSH yapılandırma dosyası (/etc/ssh/sshd_config) okunamadı. 
+              Lütfen SSH servisinin kurulu olduğundan emin olun.
+            </p>
+            <div className="bg-card border border-border rounded-lg p-4 max-w-lg mx-auto">
+              <p className="text-sm font-medium mb-2">Kontrol Komutu:</p>
+              <code className="block bg-muted p-3 rounded text-sm font-mono text-left">
+                systemctl status sshd
+              </code>
+            </div>
+            <Button onClick={fetchConfig} variant="outline" className="mt-4">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Tekrar Kontrol Et
+            </Button>
+          </div>
+        </div>
       </Layout>
     );
   }
