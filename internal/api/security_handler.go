@@ -2,9 +2,12 @@ package api
 
 import (
 	"bufio"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -775,6 +778,345 @@ func (h *Handler) UpdateSSHConfig(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"success": true,
 		"message": "SSH yapılandırması güncellendi",
+	})
+}
+
+// ==================== SSH KEY MANAGEMENT ====================
+
+// SSHKey represents an SSH public key
+type SSHKey struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Fingerprint string `json:"fingerprint"`
+	Type        string `json:"type"`
+	AddedAt     string `json:"added_at"`
+	PublicKey   string `json:"public_key"`
+}
+
+// GeneratedKey represents a newly generated key pair
+type GeneratedKey struct {
+	Name       string `json:"name"`
+	PrivateKey string `json:"private_key"`
+	PublicKey  string `json:"public_key"`
+}
+
+// ListSSHKeys returns all authorized SSH keys
+func (h *Handler) ListSSHKeys(c *fiber.Ctx) error {
+	keys := []SSHKey{}
+
+	// Read authorized_keys file
+	authKeysPath := "/root/.ssh/authorized_keys"
+	content, err := os.ReadFile(authKeysPath)
+	if err != nil {
+		// File doesn't exist, return empty list
+		return c.JSON(fiber.Map{
+			"success": true,
+			"data":    keys,
+		})
+	}
+
+	lines := strings.Split(string(content), "\n")
+	for i, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		parts := strings.Fields(line)
+		if len(parts) < 2 {
+			continue
+		}
+
+		key := SSHKey{
+			ID:        fmt.Sprintf("%d", i),
+			Type:      parts[0],
+			PublicKey: line,
+		}
+
+		// Extract name/comment if exists
+		if len(parts) >= 3 {
+			key.Name = strings.Join(parts[2:], " ")
+		} else {
+			key.Name = fmt.Sprintf("Key %d", i+1)
+		}
+
+		// Calculate fingerprint
+		fingerprint := calculateFingerprint(parts[1])
+		key.Fingerprint = fingerprint
+
+		keys = append(keys, key)
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    keys,
+	})
+}
+
+// calculateFingerprint calculates SHA256 fingerprint of a public key
+func calculateFingerprint(pubKey string) string {
+	// Decode base64
+	decoded, err := base64.StdEncoding.DecodeString(pubKey)
+	if err != nil {
+		return "unknown"
+	}
+
+	// Calculate SHA256
+	hash := sha256.Sum256(decoded)
+	encoded := base64.StdEncoding.EncodeToString(hash[:])
+
+	// Remove trailing = and truncate
+	encoded = strings.TrimRight(encoded, "=")
+	if len(encoded) > 43 {
+		encoded = encoded[:43]
+	}
+
+	return "SHA256:" + encoded
+}
+
+// GenerateSSHKey generates a new ED25519 key pair
+func (h *Handler) GenerateSSHKey(c *fiber.Ctx) error {
+	var req struct {
+		Name string `json:"name"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   "Geçersiz istek",
+		})
+	}
+
+	if req.Name == "" {
+		req.Name = "ServerPanel Key"
+	}
+
+	// Create temp directory for key generation
+	tmpDir, err := os.MkdirTemp("", "sshkey")
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"error":   "Geçici dizin oluşturulamadı",
+		})
+	}
+	defer os.RemoveAll(tmpDir)
+
+	keyPath := filepath.Join(tmpDir, "id_ed25519")
+
+	// Generate ED25519 key pair
+	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-f", keyPath, "-N", "", "-C", req.Name)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"error":   "Key oluşturulamadı: " + string(output),
+		})
+	}
+
+	// Read private key
+	privateKey, err := os.ReadFile(keyPath)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"error":   "Private key okunamadı",
+		})
+	}
+
+	// Read public key
+	publicKey, err := os.ReadFile(keyPath + ".pub")
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"error":   "Public key okunamadı",
+		})
+	}
+
+	// Add public key to authorized_keys
+	authKeysPath := "/root/.ssh/authorized_keys"
+
+	// Ensure .ssh directory exists
+	sshDir := "/root/.ssh"
+	if err := os.MkdirAll(sshDir, 0700); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"error":   ".ssh dizini oluşturulamadı",
+		})
+	}
+
+	// Append to authorized_keys
+	f, err := os.OpenFile(authKeysPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"error":   "authorized_keys dosyası açılamadı",
+		})
+	}
+	defer f.Close()
+
+	if _, err := f.WriteString(string(publicKey)); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"error":   "Public key eklenemedi",
+		})
+	}
+
+	// Return the key pair (private key will only be shown once!)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": GeneratedKey{
+			Name:       req.Name,
+			PrivateKey: string(privateKey),
+			PublicKey:  string(publicKey),
+		},
+		"message": "SSH key oluşturuldu. Private key'i HEMEN indirin, bir daha gösterilmeyecek!",
+	})
+}
+
+// AddSSHKey adds an existing public key to authorized_keys
+func (h *Handler) AddSSHKey(c *fiber.Ctx) error {
+	var req struct {
+		Name      string `json:"name"`
+		PublicKey string `json:"public_key"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   "Geçersiz istek",
+		})
+	}
+
+	if req.PublicKey == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   "Public key gerekli",
+		})
+	}
+
+	// Validate public key format
+	pubKey := strings.TrimSpace(req.PublicKey)
+	parts := strings.Fields(pubKey)
+	if len(parts) < 2 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   "Geçersiz public key formatı",
+		})
+	}
+
+	// Check if it's a valid key type
+	validTypes := []string{"ssh-rsa", "ssh-ed25519", "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp521"}
+	isValid := false
+	for _, t := range validTypes {
+		if parts[0] == t {
+			isValid = true
+			break
+		}
+	}
+	if !isValid {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   "Desteklenmeyen key tipi. Desteklenen: ssh-rsa, ssh-ed25519, ecdsa",
+		})
+	}
+
+	// Add name as comment if provided and not already in key
+	if req.Name != "" && len(parts) < 3 {
+		pubKey = pubKey + " " + req.Name
+	}
+
+	// Ensure newline at end
+	if !strings.HasSuffix(pubKey, "\n") {
+		pubKey = pubKey + "\n"
+	}
+
+	// Ensure .ssh directory exists
+	sshDir := "/root/.ssh"
+	if err := os.MkdirAll(sshDir, 0700); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"error":   ".ssh dizini oluşturulamadı",
+		})
+	}
+
+	// Append to authorized_keys
+	authKeysPath := "/root/.ssh/authorized_keys"
+	f, err := os.OpenFile(authKeysPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"error":   "authorized_keys dosyası açılamadı",
+		})
+	}
+	defer f.Close()
+
+	if _, err := f.WriteString(pubKey); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"error":   "Public key eklenemedi",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "SSH key eklendi",
+	})
+}
+
+// DeleteSSHKey removes a public key from authorized_keys
+func (h *Handler) DeleteSSHKey(c *fiber.Ctx) error {
+	keyID := c.Params("id")
+	if keyID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   "Key ID gerekli",
+		})
+	}
+
+	keyIndex, err := strconv.Atoi(keyID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   "Geçersiz key ID",
+		})
+	}
+
+	// Read authorized_keys
+	authKeysPath := "/root/.ssh/authorized_keys"
+	content, err := os.ReadFile(authKeysPath)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"error":   "authorized_keys okunamadı",
+		})
+	}
+
+	lines := strings.Split(string(content), "\n")
+	newLines := []string{}
+	currentIndex := 0
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			newLines = append(newLines, line)
+			continue
+		}
+
+		if currentIndex != keyIndex {
+			newLines = append(newLines, line)
+		}
+		currentIndex++
+	}
+
+	// Write back
+	if err := os.WriteFile(authKeysPath, []byte(strings.Join(newLines, "\n")), 0600); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"error":   "authorized_keys yazılamadı",
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "SSH key silindi",
 	})
 }
 

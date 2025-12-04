@@ -241,6 +241,11 @@ func SetupRoutes(router fiber.Router, db *database.DB) {
 	// SSH Security
 	protected.Get("/security/ssh/config", admin, h.GetSSHConfig)
 	protected.Put("/security/ssh/config", admin, h.UpdateSSHConfig)
+	// SSH Keys
+	protected.Get("/security/ssh/keys", admin, h.ListSSHKeys)
+	protected.Post("/security/ssh/keys", admin, h.AddSSHKey)
+	protected.Post("/security/ssh/keys/generate", admin, h.GenerateSSHKey)
+	protected.Delete("/security/ssh/keys/:id", admin, h.DeleteSSHKey)
 
 	// Note: WebSocket route is defined in main.go to avoid SPA fallback conflict
 }

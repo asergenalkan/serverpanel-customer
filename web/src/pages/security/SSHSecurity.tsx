@@ -11,6 +11,13 @@ import {
   AlertTriangle,
   Info,
   Shield,
+  Plus,
+  Trash2,
+  Download,
+  Copy,
+  Upload,
+  KeyRound,
+  X,
 } from 'lucide-react';
 
 interface SSHConfig {
@@ -20,6 +27,20 @@ interface SSHConfig {
   pubkey_authentication: string;
   max_auth_tries: number;
   login_grace_time: number;
+}
+
+interface SSHKey {
+  id: string;
+  name: string;
+  fingerprint: string;
+  type: string;
+  public_key: string;
+}
+
+interface GeneratedKey {
+  name: string;
+  private_key: string;
+  public_key: string;
 }
 
 export default function SSHSecurity() {
@@ -36,9 +57,20 @@ export default function SSHSecurity() {
   const [configError, setConfigError] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  
+  // SSH Keys state
+  const [sshKeys, setSSHKeys] = useState<SSHKey[]>([]);
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [showAddKeyModal, setShowAddKeyModal] = useState(false);
+  const [showPrivateKeyModal, setShowPrivateKeyModal] = useState(false);
+  const [generatedKey, setGeneratedKey] = useState<GeneratedKey | null>(null);
+  const [newKeyName, setNewKeyName] = useState('');
+  const [newPublicKey, setNewPublicKey] = useState('');
+  const [keyLoading, setKeyLoading] = useState(false);
 
   useEffect(() => {
     fetchConfig();
+    fetchSSHKeys();
   }, []);
 
   const fetchConfig = async () => {
@@ -54,6 +86,93 @@ export default function SSHSecurity() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchSSHKeys = async () => {
+    try {
+      const response = await api.get('/security/ssh/keys');
+      if (response.data.success) {
+        setSSHKeys(response.data.data || []);
+      }
+    } catch (err) {
+      console.error('SSH keys alınamadı:', err);
+    }
+  };
+
+  const generateKey = async () => {
+    setKeyLoading(true);
+    setError('');
+    try {
+      const response = await api.post('/security/ssh/keys/generate', {
+        name: newKeyName || 'ServerPanel Key',
+      });
+      if (response.data.success) {
+        setGeneratedKey(response.data.data);
+        setShowGenerateModal(false);
+        setShowPrivateKeyModal(true);
+        setNewKeyName('');
+        fetchSSHKeys();
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Key oluşturulamadı');
+    } finally {
+      setKeyLoading(false);
+    }
+  };
+
+  const addExistingKey = async () => {
+    setKeyLoading(true);
+    setError('');
+    try {
+      const response = await api.post('/security/ssh/keys', {
+        name: newKeyName,
+        public_key: newPublicKey,
+      });
+      if (response.data.success) {
+        setSuccess('SSH key eklendi');
+        setShowAddKeyModal(false);
+        setNewKeyName('');
+        setNewPublicKey('');
+        fetchSSHKeys();
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Key eklenemedi');
+    } finally {
+      setKeyLoading(false);
+    }
+  };
+
+  const deleteKey = async (id: string) => {
+    if (!confirm('Bu SSH key\'i silmek istediğinizden emin misiniz?')) return;
+    
+    try {
+      const response = await api.delete(`/security/ssh/keys/${id}`);
+      if (response.data.success) {
+        setSuccess('SSH key silindi');
+        fetchSSHKeys();
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Key silinemedi');
+    }
+  };
+
+  const downloadPrivateKey = () => {
+    if (!generatedKey) return;
+    const blob = new Blob([generatedKey.private_key], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${generatedKey.name.replace(/\s+/g, '_')}_id_ed25519`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setSuccess('Panoya kopyalandı');
+    setTimeout(() => setSuccess(''), 2000);
   };
 
   const saveConfig = async () => {
@@ -377,6 +496,75 @@ export default function SSHSecurity() {
           </div>
         </div>
 
+        {/* SSH Keys Section */}
+        <div className="bg-card rounded-lg border border-border">
+          <div className="p-4 border-b border-border flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <KeyRound className="w-5 h-5" />
+                SSH Key Yönetimi
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Yetkili SSH key'leri yönetin
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={() => setShowAddKeyModal(true)} variant="outline" size="sm">
+                <Upload className="w-4 h-4 mr-2" />
+                Key Ekle
+              </Button>
+              <Button onClick={() => setShowGenerateModal(true)} size="sm">
+                <Plus className="w-4 h-4 mr-2" />
+                Yeni Key Oluştur
+              </Button>
+            </div>
+          </div>
+          <div className="divide-y divide-border">
+            {sshKeys.map((key) => (
+              <div key={key.id} className="p-4 flex items-center justify-between">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Key className="w-4 h-4 text-muted-foreground" />
+                    <span className="font-medium">{key.name}</span>
+                    <span className="text-xs bg-muted px-2 py-0.5 rounded">{key.type}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 font-mono truncate">
+                    {key.fingerprint}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={() => copyToClipboard(key.public_key)}
+                    variant="ghost"
+                    size="sm"
+                    title="Public key'i kopyala"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    onClick={() => deleteKey(key.id)}
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    title="Sil"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+            {sshKeys.length === 0 && (
+              <div className="p-8 text-center text-muted-foreground">
+                <KeyRound className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>Henüz SSH key eklenmemiş</p>
+                <p className="text-sm mt-1">
+                  Güvenli giriş için bir SSH key oluşturun veya mevcut key'inizi ekleyin.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Warning */}
         <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
           <div className="flex items-start gap-3">
@@ -392,6 +580,178 @@ export default function SSHSecurity() {
             </div>
           </div>
         </div>
+
+        {/* Generate Key Modal */}
+        {showGenerateModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-card rounded-lg border border-border p-6 w-full max-w-md">
+              <h3 className="text-lg font-semibold mb-4">Yeni SSH Key Oluştur</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                ED25519 algoritması ile güvenli bir key çifti oluşturulacak.
+              </p>
+              <div>
+                <label className="block text-sm font-medium mb-1">Key Adı</label>
+                <input
+                  type="text"
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
+                  placeholder="Örn: Laptop, Ofis PC"
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-background"
+                />
+              </div>
+              <div className="flex justify-end gap-2 mt-6">
+                <Button variant="outline" onClick={() => setShowGenerateModal(false)}>
+                  İptal
+                </Button>
+                <Button onClick={generateKey} disabled={keyLoading}>
+                  {keyLoading ? 'Oluşturuluyor...' : 'Oluştur'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Existing Key Modal */}
+        {showAddKeyModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-card rounded-lg border border-border p-6 w-full max-w-lg">
+              <h3 className="text-lg font-semibold mb-4">Mevcut SSH Key Ekle</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Bilgisayarınızdaki public key'i yapıştırın.
+              </p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Key Adı</label>
+                  <input
+                    type="text"
+                    value={newKeyName}
+                    onChange={(e) => setNewKeyName(e.target.value)}
+                    placeholder="Örn: MacBook Pro"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Public Key</label>
+                  <textarea
+                    value={newPublicKey}
+                    onChange={(e) => setNewPublicKey(e.target.value)}
+                    placeholder="ssh-ed25519 AAAA... veya ssh-rsa AAAA..."
+                    rows={4}
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background font-mono text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Genellikle ~/.ssh/id_ed25519.pub veya ~/.ssh/id_rsa.pub dosyasında bulunur.
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 mt-6">
+                <Button variant="outline" onClick={() => {
+                  setShowAddKeyModal(false);
+                  setNewKeyName('');
+                  setNewPublicKey('');
+                }}>
+                  İptal
+                </Button>
+                <Button onClick={addExistingKey} disabled={keyLoading || !newPublicKey}>
+                  {keyLoading ? 'Ekleniyor...' : 'Ekle'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Private Key Download Modal */}
+        {showPrivateKeyModal && generatedKey && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-card rounded-lg border border-border p-6 w-full max-w-2xl">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center">
+                  <CheckCircle className="w-6 h-6 text-green-500" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">SSH Key Oluşturuldu!</h3>
+                  <p className="text-sm text-muted-foreground">{generatedKey.name}</p>
+                </div>
+              </div>
+
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 mb-4">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-5 h-5 text-destructive mt-0.5" />
+                  <div>
+                    <p className="font-medium text-destructive">ÖNEMLİ: Private Key'i Şimdi İndirin!</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Private key sunucuda SAKLANMIYOR. Bu pencereyi kapattıktan sonra
+                      private key'e bir daha erişemezsiniz. Hemen indirin ve güvenli bir yerde saklayın.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-sm font-medium">Private Key (GIZLI TUTUN!)</label>
+                    <div className="flex gap-1">
+                      <Button
+                        onClick={() => copyToClipboard(generatedKey.private_key)}
+                        variant="ghost"
+                        size="sm"
+                      >
+                        <Copy className="w-4 h-4 mr-1" />
+                        Kopyala
+                      </Button>
+                      <Button onClick={downloadPrivateKey} variant="ghost" size="sm">
+                        <Download className="w-4 h-4 mr-1" />
+                        İndir
+                      </Button>
+                    </div>
+                  </div>
+                  <pre className="bg-muted p-3 rounded-lg text-xs font-mono overflow-x-auto max-h-40">
+                    {generatedKey.private_key}
+                  </pre>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-sm font-medium">Public Key (sunucuya eklendi)</label>
+                    <Button
+                      onClick={() => copyToClipboard(generatedKey.public_key)}
+                      variant="ghost"
+                      size="sm"
+                    >
+                      <Copy className="w-4 h-4 mr-1" />
+                      Kopyala
+                    </Button>
+                  </div>
+                  <pre className="bg-muted p-3 rounded-lg text-xs font-mono overflow-x-auto">
+                    {generatedKey.public_key}
+                  </pre>
+                </div>
+              </div>
+
+              <div className="bg-blue-500/10 rounded-lg p-4 mt-4">
+                <h4 className="font-medium text-blue-600 mb-2">Kullanım</h4>
+                <p className="text-sm text-muted-foreground mb-2">
+                  İndirdiğiniz private key dosyasını bilgisayarınıza kaydedin ve SSH ile bağlanın:
+                </p>
+                <code className="block bg-muted p-2 rounded text-sm font-mono">
+                  chmod 600 ~/{generatedKey.name.replace(/\s+/g, '_')}_id_ed25519<br />
+                  ssh -i ~/{generatedKey.name.replace(/\s+/g, '_')}_id_ed25519 root@sunucu_ip
+                </code>
+              </div>
+
+              <div className="flex justify-end mt-6">
+                <Button onClick={() => {
+                  setShowPrivateKeyModal(false);
+                  setGeneratedKey(null);
+                }}>
+                  <X className="w-4 h-4 mr-2" />
+                  Kapat (Key'i indirdiğimden eminim)
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   );
