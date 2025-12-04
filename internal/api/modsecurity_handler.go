@@ -81,21 +81,36 @@ func (h *Handler) GetModSecurityStatus(c *fiber.Ctx) error {
 		}
 	}
 
-	// Check OWASP CRS
-	crsPath := "/etc/modsecurity/crs"
-	if entries, err := os.ReadDir(crsPath); err == nil {
-		for _, entry := range entries {
-			if entry.IsDir() && strings.HasPrefix(entry.Name(), "coreruleset-") {
-				status.CRSInstalled = true
-				status.CRSVersion = strings.TrimPrefix(entry.Name(), "coreruleset-")
+	// Check OWASP CRS - check multiple possible locations
+	crsPaths := []string{
+		"/etc/modsecurity/crs",
+		"/usr/share/modsecurity-crs",
+	}
 
-				// Count rules
-				rulesPath := filepath.Join(crsPath, entry.Name(), "rules")
-				if ruleFiles, err := filepath.Glob(filepath.Join(rulesPath, "*.conf")); err == nil {
-					status.RulesCount = len(ruleFiles)
+	for _, crsPath := range crsPaths {
+		// Check for coreruleset-X.X.X directory structure
+		if entries, err := os.ReadDir(crsPath); err == nil {
+			for _, entry := range entries {
+				if entry.IsDir() && strings.HasPrefix(entry.Name(), "coreruleset-") {
+					status.CRSInstalled = true
+					status.CRSVersion = strings.TrimPrefix(entry.Name(), "coreruleset-")
+
+					rulesPath := filepath.Join(crsPath, entry.Name(), "rules")
+					if ruleFiles, err := filepath.Glob(filepath.Join(rulesPath, "*.conf")); err == nil {
+						status.RulesCount = len(ruleFiles)
+					}
+					break
 				}
-				break
 			}
+		}
+
+		// Check for Ubuntu's modsecurity-crs package structure
+		rulesPath := filepath.Join(crsPath, "rules")
+		if ruleFiles, err := filepath.Glob(filepath.Join(rulesPath, "*.conf")); err == nil && len(ruleFiles) > 0 {
+			status.CRSInstalled = true
+			status.CRSVersion = "3.3.2" // Ubuntu package version
+			status.RulesCount = len(ruleFiles)
+			break
 		}
 	}
 
@@ -209,18 +224,34 @@ func (h *Handler) GetModSecurityRules(c *fiber.Ctx) error {
 		return c.Status(403).JSON(fiber.Map{"error": "Yetkiniz yok"})
 	}
 
-	// Find CRS directory
-	crsPath := "/etc/modsecurity/crs"
-	var rulesPath string
-
-	entries, err := os.ReadDir(crsPath)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "CRS dizini bulunamadı"})
+	// Find CRS directory - check multiple locations
+	crsPaths := []string{
+		"/etc/modsecurity/crs",
+		"/usr/share/modsecurity-crs",
 	}
 
-	for _, entry := range entries {
-		if entry.IsDir() && strings.HasPrefix(entry.Name(), "coreruleset-") {
-			rulesPath = filepath.Join(crsPath, entry.Name(), "rules")
+	var rulesPath string
+
+	for _, crsPath := range crsPaths {
+		// Check for coreruleset-X.X.X directory structure
+		if entries, err := os.ReadDir(crsPath); err == nil {
+			for _, entry := range entries {
+				if entry.IsDir() && strings.HasPrefix(entry.Name(), "coreruleset-") {
+					rulesPath = filepath.Join(crsPath, entry.Name(), "rules")
+					break
+				}
+			}
+		}
+
+		// Check for Ubuntu's modsecurity-crs package structure
+		if rulesPath == "" {
+			testPath := filepath.Join(crsPath, "rules")
+			if _, err := os.Stat(testPath); err == nil {
+				rulesPath = testPath
+			}
+		}
+
+		if rulesPath != "" {
 			break
 		}
 	}
