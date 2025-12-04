@@ -22,14 +22,21 @@ Bu dosya WHM/cPanel özelliklerini analiz eder ve ServerPanel'e eklenecek özell
 | **Sunucu Yönetimi** | ✅ | ✅ **Sunucu Durumu + Yazılım Yöneticisi + Sistem Sağlığı** | **%95** |
 | Backup | ✅ | ❌ | %0 |
 | **Cron Jobs** | ✅ | ✅ **Tam fonksiyonel** | **%95** |
-| **Güvenlik** | ✅ | ✅ **Fail2ban + UFW + SSH Key + Malware Tarama** | **%90** |
+| **Güvenlik** | ✅ | ✅ **Fail2ban + UFW + SSH Key + Malware + ModSecurity** | **%95** |
 | Metrics/Logs | ✅ | ⚠️ Temel | %15 |
 | Reseller Sistemi | ✅ | ⚠️ Rol var | %10 |
 | **Kurulum Scripti** | ✅ | ✅ Tam otomatik + Migration + Mail + MultiPHP | %98 |
 | **UI/UX** | ✅ | ✅ **Lottie Loading Animasyonları + Tema Uyumu** | **%90** |
 
 ### 🆕 Son Eklenen Özellikler (5 Aralık 2025)
-- ✅ **Malware Tarama Sistemi** (YENİ!)
+- ✅ **ModSecurity WAF** (YENİ!)
+  - Web Application Firewall
+  - OWASP Core Rule Set (CRS) entegrasyonu
+  - Tespit/Engelleme modları
+  - Audit log görüntüleme ve istatistikler
+  - IP whitelist yönetimi
+  - Kural listesi görüntüleme
+- ✅ **Malware Tarama Sistemi**
   - Arka planda tarama (sayfa kapatılabilir)
   - Canlı ilerleme gösterimi (progress bar, dosya adı)
   - Hızlı/Tam tarama seçenekleri
@@ -612,11 +619,15 @@ Henüz yok
   - Tarama geçmişi (veritabanında saklanır)
   - Admin tüm kullanıcıların taramalarını görebilir
 
+- [x] **ModSecurity WAF**
+  - WAF aktivasyonu/deaktivasyonu
+  - Tespit/Engelleme mod seçimi
+  - OWASP CRS kural listesi
+  - Audit log görüntüleme
+  - İstatistikler (engellenen, loglanan)
+  - IP whitelist yönetimi
+
 ### Eksik Özellikler
-- [ ] **ModSecurity**
-  - WAF aktivasyonu
-  - Kural yönetimi
-  - Log görüntüleme
 - [ ] **Leech Protection**
   - Şifre sızıntı koruması
 

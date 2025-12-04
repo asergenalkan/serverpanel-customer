@@ -259,6 +259,17 @@ func SetupRoutes(router fiber.Router, db *database.DB) {
 	protected.Post("/security/ssh/keys", admin, h.AddSSHKey)
 	protected.Post("/security/ssh/keys/generate", admin, h.GenerateSSHKey)
 	protected.Delete("/security/ssh/keys/:id", admin, h.DeleteSSHKey)
+	// ModSecurity WAF
+	protected.Get("/security/modsecurity/status", admin, h.GetModSecurityStatus)
+	protected.Post("/security/modsecurity/toggle", admin, h.ToggleModSecurity)
+	protected.Post("/security/modsecurity/mode", admin, h.SetModSecurityMode)
+	protected.Get("/security/modsecurity/rules", admin, h.GetModSecurityRules)
+	protected.Get("/security/modsecurity/audit-log", admin, h.GetModSecurityAuditLog)
+	protected.Get("/security/modsecurity/stats", admin, h.GetModSecurityStats)
+	protected.Delete("/security/modsecurity/audit-log", admin, h.ClearModSecurityAuditLog)
+	protected.Get("/security/modsecurity/whitelist", admin, h.GetModSecurityWhitelist)
+	protected.Post("/security/modsecurity/whitelist", admin, h.AddModSecurityWhitelist)
+	protected.Delete("/security/modsecurity/whitelist", admin, h.RemoveModSecurityWhitelist)
 
 	// Note: WebSocket route is defined in main.go to avoid SPA fallback conflict
 }

@@ -30,6 +30,7 @@ import RunningProcesses from '@/pages/system/RunningProcesses';
 import Fail2ban from '@/pages/security/Fail2ban';
 import Firewall from '@/pages/security/Firewall';
 import SSHSecurity from '@/pages/security/SSHSecurity';
+import ModSecurity from '@/pages/security/ModSecurity';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -322,6 +323,14 @@ function AppRoutes() {
         element={
           <AdminRoute>
             <SSHSecurity />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/security/modsecurity"
+        element={
+          <AdminRoute>
+            <ModSecurity />
           </AdminRoute>
         }
       />

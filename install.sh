@@ -349,6 +349,61 @@ FAIL2BAN_EOF
         log_warn "UFW kurulamadı"
     fi
     
+    # ModSecurity WAF kurulumu (kurulu ama pasif - panelden etkinleştirilecek)
+    log_progress "ModSecurity WAF kuruluyor"
+    DEBIAN_FRONTEND=noninteractive apt-get install -y libapache2-mod-security2 > /dev/null 2>&1
+    if [[ -f /etc/modsecurity/modsecurity.conf-recommended ]]; then
+        # Varsayılan config'i kopyala (DetectionOnly modunda)
+        cp /etc/modsecurity/modsecurity.conf-recommended /etc/modsecurity/modsecurity.conf
+        
+        # OWASP CRS kurallarını indir
+        log_progress "OWASP Core Rule Set indiriliyor"
+        local CRS_VERSION="3.3.5"
+        mkdir -p /etc/modsecurity/crs
+        if [[ ! -d /etc/modsecurity/crs/coreruleset-${CRS_VERSION} ]]; then
+            wget -q "https://github.com/coreruleset/coreruleset/archive/refs/tags/v${CRS_VERSION}.tar.gz" -O /tmp/crs.tar.gz 2>/dev/null
+            if [[ -f /tmp/crs.tar.gz ]]; then
+                tar xzf /tmp/crs.tar.gz -C /etc/modsecurity/crs/
+                rm -f /tmp/crs.tar.gz
+                
+                # CRS config'i kopyala
+                cp /etc/modsecurity/crs/coreruleset-${CRS_VERSION}/crs-setup.conf.example \
+                   /etc/modsecurity/crs/coreruleset-${CRS_VERSION}/crs-setup.conf
+                
+                # Apache'ye CRS kurallarını ekle
+                cat > /etc/apache2/mods-available/security2.conf << MODSECCONF
+<IfModule security2_module>
+    SecDataDir /var/cache/modsecurity
+    IncludeOptional /etc/modsecurity/*.conf
+    IncludeOptional /etc/modsecurity/crs/coreruleset-${CRS_VERSION}/crs-setup.conf
+    IncludeOptional /etc/modsecurity/crs/coreruleset-${CRS_VERSION}/rules/*.conf
+</IfModule>
+MODSECCONF
+                
+                # Cache dizini oluştur
+                mkdir -p /var/cache/modsecurity
+                chown www-data:www-data /var/cache/modsecurity
+                
+                # Audit log dizini
+                mkdir -p /var/log/modsecurity
+                chown www-data:www-data /var/log/modsecurity
+                
+                log_done "OWASP CRS ${CRS_VERSION} kuruldu"
+            else
+                log_warn "OWASP CRS indirilemedi"
+            fi
+        else
+            log_done "OWASP CRS zaten kurulu"
+        fi
+        
+        # ModSecurity modülü kuruldu ama ETKİNLEŞTİRİLMEDİ
+        # Panelden etkinleştirilecek (a2enmod security2)
+        a2dismod security2 > /dev/null 2>&1 || true
+        log_done "ModSecurity WAF kuruldu (panelden etkinleştirilebilir)"
+    else
+        log_warn "ModSecurity kurulamadı"
+    fi
+    
     # Kurulum özeti
     echo ""
     log_info "Apache: $(apache2 -v 2>/dev/null | head -1 | awk '{print $3}')"
@@ -357,6 +412,7 @@ FAIL2BAN_EOF
     log_info "Pure-FTPd: $(pure-ftpd --help 2>&1 | head -1 || echo 'kurulu değil')"
     log_info "Fail2ban: $(fail2ban-client --version 2>/dev/null | head -1 || echo 'kurulu değil')"
     log_info "UFW: $(ufw version 2>/dev/null | head -1 || echo 'kurulu değil')"
+    log_info "ModSecurity: $(dpkg -l | grep libapache2-mod-security2 | awk '{print $3}' || echo 'kurulu değil')"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════

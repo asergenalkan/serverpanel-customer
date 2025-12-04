@@ -143,14 +143,21 @@ Admin giriş yapar
 │   │   ├── Mevcut public key ekleme
 │   │   ├── Key listeleme (fingerprint)
 │   │   └── Key silme
-│   └── Malware Tarama (ClamAV)
-│       ├── Arka planda tarama (sayfa kapatılabilir)
-│       ├── Canlı ilerleme gösterimi (progress bar)
-│       ├── Taranan dosya adı gösterimi
-│       ├── Hızlı/Tam tarama seçenekleri
-│       ├── Tarama iptali
-│       ├── Tehdit tespiti ve karantina
-│       └── Tarama geçmişi (veritabanında)
+│   ├── Malware Tarama (ClamAV)
+│   │   ├── Arka planda tarama (sayfa kapatılabilir)
+│   │   ├── Canlı ilerleme gösterimi (progress bar)
+│   │   ├── Taranan dosya adı gösterimi
+│   │   ├── Hızlı/Tam tarama seçenekleri
+│   │   ├── Tarama iptali
+│   │   ├── Tehdit tespiti ve karantina
+│   │   └── Tarama geçmişi (veritabanında)
+│   └── ModSecurity WAF
+│       ├── Web Application Firewall
+│       ├── OWASP Core Rule Set (CRS)
+│       ├── Tespit/Engelleme modları
+│       ├── Audit log görüntüleme
+│       ├── İstatistikler
+│       └── IP whitelist yönetimi
 │
 ├── Cron Jobs → ✅ Tam fonksiyonel!
 │   ├── Cron işi oluşturma/düzenleme/silme

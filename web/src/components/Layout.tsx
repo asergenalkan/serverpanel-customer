@@ -99,6 +99,7 @@ const securityItems = [
   { icon: ShieldCheck, label: 'Fail2ban Yönetimi', href: '/security/fail2ban' },
   { icon: Shield, label: 'Firewall (UFW)', href: '/security/firewall' },
   { icon: Key, label: 'SSH Güvenliği', href: '/security/ssh' },
+  { icon: Shield, label: 'ModSecurity WAF', href: '/security/modsecurity' },
 ];
 
 export default function Layout({ children }: LayoutProps) {
