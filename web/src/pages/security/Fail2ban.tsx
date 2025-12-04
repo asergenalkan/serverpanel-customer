@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import LoadingAnimation from '@/components/LoadingAnimation';
 import { Button } from '@/components/ui/Button';
@@ -38,6 +39,7 @@ interface Fail2banStatus {
 }
 
 export default function Fail2ban() {
+  const navigate = useNavigate();
   const [status, setStatus] = useState<Fail2banStatus | null>(null);
   const [notInstalled, setNotInstalled] = useState(false);
   const [whitelist, setWhitelist] = useState<string[]>([]);
@@ -227,21 +229,17 @@ export default function Fail2ban() {
             <h2 className="text-xl font-semibold mb-2">Fail2ban Kurulu Değil</h2>
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
               Fail2ban, brute-force saldırılarına karşı sunucunuzu koruyan bir güvenlik aracıdır.
-              Bu özelliği kullanmak için lütfen Fail2ban'i kurun.
+              Yazılım Yöneticisi'nden tek tıkla kurabilirsiniz.
             </p>
-            <div className="bg-card border border-border rounded-lg p-4 max-w-lg mx-auto">
-              <p className="text-sm font-medium mb-2">Kurulum Komutu:</p>
-              <code className="block bg-muted p-3 rounded text-sm font-mono text-left">
-                apt-get update && apt-get install -y fail2ban
-              </code>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Button onClick={() => navigate('/software')}>
+                Yazılım Yöneticisini Aç
+              </Button>
+              <Button onClick={fetchStatus} variant="outline">
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Tekrar Kontrol Et
+              </Button>
             </div>
-            <p className="text-xs text-muted-foreground mt-4">
-              Veya Yazılım Yöneticisi'nden Fail2ban'i kurabilirsiniz.
-            </p>
-            <Button onClick={fetchStatus} variant="outline" className="mt-4">
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Tekrar Kontrol Et
-            </Button>
           </div>
         </div>
       </Layout>
