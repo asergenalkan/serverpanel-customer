@@ -31,6 +31,7 @@ import Fail2ban from '@/pages/security/Fail2ban';
 import Firewall from '@/pages/security/Firewall';
 import SSHSecurity from '@/pages/security/SSHSecurity';
 import ModSecurity from '@/pages/security/ModSecurity';
+import Terminal from '@/pages/Terminal';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -332,6 +333,14 @@ function AppRoutes() {
           <AdminRoute>
             <ModSecurity />
           </AdminRoute>
+        }
+      />
+      <Route
+        path="/terminal"
+        element={
+          <ProtectedRoute>
+            <Terminal />
+          </ProtectedRoute>
         }
       />
       <Route path="/" element={<Navigate to="/dashboard" replace />} />

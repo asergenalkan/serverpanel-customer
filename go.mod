@@ -5,6 +5,7 @@ go 1.25.4
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
+	github.com/creack/pty v1.1.24 // indirect
 	github.com/fasthttp/websocket v1.5.8 // indirect
 	github.com/go-sql-driver/mysql v1.9.3 // indirect
 	github.com/gofiber/contrib/websocket v1.3.4 // indirect

@@ -52,6 +52,7 @@ func main() {
 		return fiber.ErrUpgradeRequired
 	})
 	app.Get("/api/v1/ws/tasks/:task_id", websocket.New(api.HandleTaskWebSocketDirect(db, cfg)))
+	app.Get("/api/v1/ws/terminal", websocket.New(api.HandleTerminalWebSocketDirect(db, cfg)))
 
 	// API routes
 	apiRouter := app.Group("/api/v1")
