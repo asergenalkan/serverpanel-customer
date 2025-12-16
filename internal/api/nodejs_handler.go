@@ -536,7 +536,7 @@ func (h *Handler) getPM2AppStatus(pm2ID int) string {
 		export HOME=/root
 		export NVM_DIR="$HOME/.nvm"
 		[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-		pm2 show %d 2>/dev/null | grep "status" | head -1 | awk '{print $4}'
+		pm2 show %d 2>/dev/null | grep "│ status" | head -1 | sed 's/.*│ //' | sed 's/ *│.*//' | tr -d ' '
 	`, pm2ID)
 
 	cmd := exec.Command("bash", "-c", statusCmd)
