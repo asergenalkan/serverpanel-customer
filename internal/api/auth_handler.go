@@ -124,6 +124,79 @@ func (h *Handler) Health(c *fiber.Ctx) error {
 	})
 }
 
+func (h *Handler) ChangePassword(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(int64)
+
+	var req struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Geçersiz istek",
+		})
+	}
+
+	if req.CurrentPassword == "" || req.NewPassword == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Mevcut şifre ve yeni şifre gereklidir",
+		})
+	}
+
+	if len(req.NewPassword) < 6 {
+		return c.Status(fiber.StatusBadRequest).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Yeni şifre en az 6 karakter olmalıdır",
+		})
+	}
+
+	// Get current password hash
+	var currentHash string
+	err := h.db.QueryRow("SELECT password FROM users WHERE id = ?", userID).Scan(&currentHash)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Kullanıcı bulunamadı",
+		})
+	}
+
+	// Verify current password
+	if !auth.CheckPassword(req.CurrentPassword, currentHash) {
+		return c.Status(fiber.StatusUnauthorized).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Mevcut şifre yanlış",
+		})
+	}
+
+	// Hash new password
+	newHash, err := auth.HashPassword(req.NewPassword)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Şifre oluşturma hatası",
+		})
+	}
+
+	// Update password
+	_, err = h.db.Exec("UPDATE users SET password = ?, updated_at = NOW() WHERE id = ?", newHash, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Şifre güncellenemedi",
+		})
+	}
+
+	h.logActivity(userID, "password_change", "User changed password", c.IP())
+
+	return c.JSON(models.APIResponse{
+		Success: true,
+		Message: "Şifre başarıyla değiştirildi",
+	})
+}
+
 func (h *Handler) logActivity(userID int64, action, details, ip string) {
 	h.db.Exec(`
 		INSERT INTO activity_logs (user_id, action, details, ip_address)

@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -36,6 +36,7 @@ import {
   ShieldCheck,
   Key,
   Box,
+  User,
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -114,6 +115,19 @@ export default function Layout({ children }: LayoutProps) {
   const [serverStatusOpen, setServerStatusOpen] = useState(false);
   const [systemHealthOpen, setSystemHealthOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Check if current path is in server status section
   const isServerStatusActive = location.pathname.startsWith('/server/');
@@ -333,15 +347,47 @@ export default function Layout({ children }: LayoutProps) {
         </nav>
 
         {/* User */}
-        <div className="p-4 border-t border-[var(--color-sidebar-border)]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">{user?.username}</p>
-              <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
-            </div>
-            <Button variant="ghost" size="icon" onClick={logout} title="Çıkış Yap">
-              <LogOut className="w-5 h-5" />
-            </Button>
+        <div className="p-4 border-t border-[var(--color-sidebar-border)]" ref={userMenuRef}>
+          <div className="relative">
+            <button
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-muted transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <User className="w-4 h-4 text-primary" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-medium">{user?.username}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
+                </div>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Dropdown Menu */}
+            {userMenuOpen && (
+              <div className="absolute bottom-full left-0 right-0 mb-2 bg-popover border border-border rounded-lg shadow-lg overflow-hidden">
+                <Link
+                  to="/profile"
+                  onClick={() => setUserMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span className="text-sm">Profil Ayarları</span>
+                </Link>
+                <button
+                  onClick={() => {
+                    setUserMenuOpen(false);
+                    logout();
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-red-500"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className="text-sm">Çıkış Yap</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </aside>

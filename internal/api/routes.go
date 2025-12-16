@@ -28,6 +28,7 @@ func SetupRoutes(router fiber.Router, db *database.DB) {
 	// Auth
 	protected.Get("/auth/me", h.GetCurrentUser)
 	protected.Post("/auth/logout", h.Logout)
+	protected.Post("/auth/change-password", h.ChangePassword)
 
 	// Dashboard
 	protected.Get("/dashboard/stats", h.GetDashboardStats)
