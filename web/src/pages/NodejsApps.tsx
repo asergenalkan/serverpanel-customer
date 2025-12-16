@@ -76,9 +76,9 @@ export default function NodejsApps() {
 
   const checkNodejsSupport = async () => {
     try {
-      const response = await api.get('/settings/server');
+      const response = await api.get('/server/features');
       if (response.data.success) {
-        setNodejsEnabled(response.data.data.nodejs_enabled);
+        setNodejsEnabled(response.data.data.nodejs_enabled || false);
         if (response.data.data.nodejs_enabled) {
           fetchApps();
           fetchDomains();

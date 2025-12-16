@@ -142,11 +142,19 @@ func (h *Handler) GetAllowedPHPVersions(c *fiber.Ctx) error {
 
 // GetServerFeatures returns server features for users (read-only view)
 func (h *Handler) GetServerFeatures(c *fiber.Ctx) error {
+	// Get nodejs_enabled from server_settings
+	nodejsEnabled := false
+	var value string
+	if err := h.db.QueryRow("SELECT value FROM server_settings WHERE key = 'nodejs_enabled'").Scan(&value); err == nil {
+		nodejsEnabled = value == "true"
+	}
+
 	features := map[string]interface{}{
 		"php_versions":        h.getPHPVersions(),
 		"php_extensions":      h.getPHPExtensionsSimple(),
 		"apache_modules":      h.getApacheModulesSimple(),
 		"additional_software": h.getAdditionalSoftwareSimple(),
+		"nodejs_enabled":      nodejsEnabled,
 	}
 
 	return c.JSON(models.APIResponse{
