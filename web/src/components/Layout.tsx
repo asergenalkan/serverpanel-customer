@@ -348,26 +348,26 @@ export default function Layout({ children }: LayoutProps) {
 
         {/* User */}
         <div className="p-4 border-t border-[var(--color-sidebar-border)]" ref={userMenuRef}>
-          <div className="relative">
+          <div className="flex items-center justify-between relative">
             <button
               onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-muted transition-colors"
+              className="flex items-center gap-2 hover:bg-muted p-1 pr-3 rounded-lg transition-colors"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <User className="w-4 h-4 text-primary" />
-                </div>
-                <div className="text-left">
-                  <p className="text-sm font-medium">{user?.username}</p>
-                  <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
-                </div>
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <User className="w-4 h-4 text-primary" />
               </div>
-              <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+              <div className="text-left">
+                <p className="text-sm font-medium">{user?.username}</p>
+                <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
+              </div>
             </button>
+            <Button variant="ghost" size="icon" onClick={logout} title="Çıkış Yap">
+              <LogOut className="w-5 h-5" />
+            </Button>
 
-            {/* Dropdown Menu */}
+            {/* Profile Dropdown */}
             {userMenuOpen && (
-              <div className="absolute bottom-full left-0 right-0 mb-2 bg-popover border border-border rounded-lg shadow-lg overflow-hidden">
+              <div className="absolute bottom-full left-0 mb-2 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50 min-w-[160px]">
                 <Link
                   to="/profile"
                   onClick={() => setUserMenuOpen(false)}
@@ -376,16 +376,6 @@ export default function Layout({ children }: LayoutProps) {
                   <Settings className="w-4 h-4" />
                   <span className="text-sm">Profil Ayarları</span>
                 </Link>
-                <button
-                  onClick={() => {
-                    setUserMenuOpen(false);
-                    logout();
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors text-red-500"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span className="text-sm">Çıkış Yap</span>
-                </button>
               </div>
             )}
           </div>

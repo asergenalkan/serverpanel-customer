@@ -181,7 +181,7 @@ func (h *Handler) ChangePassword(c *fiber.Ctx) error {
 	}
 
 	// Update password
-	_, err = h.db.Exec("UPDATE users SET password = ?, updated_at = NOW() WHERE id = ?", newHash, userID)
+	_, err = h.db.Exec("UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", newHash, userID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(models.APIResponse{
 			Success: false,

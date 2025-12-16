@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import Layout from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -48,6 +49,7 @@ export default function Profile() {
 
 
   return (
+    <Layout>
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Profil Ayarları</h1>
@@ -181,5 +183,6 @@ export default function Profile() {
         </Card>
       </div>
     </div>
+    </Layout>
   );
 }
