@@ -258,8 +258,8 @@ server.listen(PORT, () => {
 
 	appID, _ := result.LastInsertId()
 
-	// Create Apache proxy config if domain is specified
-	if req.DomainID != nil && req.AppURL != "" {
+	// Create Apache proxy config if domain/subdomain URL is specified
+	if req.AppURL != "" {
 		h.createApacheProxyConfig(appID, port, req.AppURL)
 	}
 
