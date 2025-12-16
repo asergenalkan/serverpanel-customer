@@ -99,14 +99,6 @@ export default function Login() {
               </Button>
             </form>
 
-            <div className="mt-6 pt-4 border-t border-border">
-              <p className="text-xs text-center text-muted-foreground">
-                Varsayılan giriş bilgileri yalnızca demo amaçlıdır.
-              </p>
-              <p className="text-xs text-center text-muted-foreground mt-1">
-                <span className="font-mono font-medium">admin / admin123</span>
-              </p>
-            </div>
           </CardContent>
         </Card>
       </div>
