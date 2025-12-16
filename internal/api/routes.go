@@ -202,6 +202,7 @@ func SetupRoutes(router fiber.Router, db *database.DB) {
 	protected.Get("/nodejs/apps/:id/env", h.GetNodejsAppEnv)
 	protected.Put("/nodejs/apps/:id/env", h.UpdateNodejsAppEnv)
 	protected.Post("/nodejs/apps/:id/npm", h.RunNpmCommand)
+	protected.Get("/nodejs/apps/:id/npm/stream", h.RunNpmCommandStream)
 	protected.Get("/nodejs/apps/:id/scripts", h.GetPackageJsonScripts)
 
 	// Server Settings (admin only)

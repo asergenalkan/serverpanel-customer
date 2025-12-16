@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -667,7 +668,7 @@ func (h *Handler) GetPackageJsonScripts(c *fiber.Ctx) error {
 	})
 }
 
-// RunNpmCommand runs npm commands for a Node.js application
+// RunNpmCommand runs npm commands for a Node.js application (legacy, non-streaming)
 func (h *Handler) RunNpmCommand(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(int64)
 	role := c.Locals("role").(string)
@@ -683,75 +684,10 @@ func (h *Handler) RunNpmCommand(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate command - only allow safe npm commands
-	allowedCommands := map[string]bool{
-		"install": true,
-		"ci":      true,
-		"build":   true,
-		"start":   true,
-		"test":    true,
-		"audit":   true,
-	}
-
-	// Check if it's a "run <script>" command
-	cmdParts := strings.Fields(req.Command)
-	if len(cmdParts) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(models.APIResponse{
-			Success: false,
-			Error:   "Komut belirtilmedi",
-		})
-	}
-
-	baseCmd := cmdParts[0]
-	if baseCmd == "run" && len(cmdParts) >= 2 {
-		// Allow npm run <script>
-		baseCmd = "run"
-	}
-
-	if !allowedCommands[baseCmd] && baseCmd != "run" {
-		return c.Status(fiber.StatusBadRequest).JSON(models.APIResponse{
-			Success: false,
-			Error:   "Bu komut izin verilmiyor: " + req.Command,
-		})
-	}
-
-	// Get app
-	var app NodejsApp
-	err := h.db.QueryRow("SELECT id, user_id, app_root, node_version FROM nodejs_apps WHERE id = ?", appID).Scan(&app.ID, &app.UserID, &app.AppRoot, &app.NodeVersion)
-	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(models.APIResponse{
-			Success: false,
-			Error:   "Uygulama bulunamadı",
-		})
-	}
-
-	// Check permission
-	if role != "admin" && app.UserID != userID {
-		return c.Status(fiber.StatusForbidden).JSON(models.APIResponse{
-			Success: false,
-			Error:   "Bu uygulamada komut çalıştırma yetkiniz yok",
-		})
-	}
-
-	// If running a script, check package.json for dangerous commands
-	if baseCmd == "run" && len(cmdParts) >= 2 {
-		scriptName := cmdParts[1]
-		packageJsonPath := filepath.Join(app.AppRoot, "package.json")
-		if data, err := os.ReadFile(packageJsonPath); err == nil {
-			var packageJson struct {
-				Scripts map[string]string `json:"scripts"`
-			}
-			if json.Unmarshal(data, &packageJson) == nil {
-				if script, exists := packageJson.Scripts[scriptName]; exists {
-					if dangerous, pattern := containsDangerousCommand(script); dangerous {
-						return c.Status(fiber.StatusForbidden).JSON(models.APIResponse{
-							Success: false,
-							Error:   fmt.Sprintf("Bu script güvenlik nedeniyle engellenmiştir. Tehlikeli komut tespit edildi: '%s'", pattern),
-						})
-					}
-				}
-			}
-		}
+	// Validate and get app
+	app, errResp := h.validateNpmCommand(c, userID, role, appID, req.Command)
+	if errResp != nil {
+		return errResp
 	}
 
 	// Run npm command
@@ -780,6 +716,157 @@ func (h *Handler) RunNpmCommand(c *fiber.Ctx) error {
 		Message: "Komut başarıyla çalıştırıldı",
 		Data:    string(output),
 	})
+}
+
+// RunNpmCommandStream runs npm commands with real-time streaming output (SSE)
+func (h *Handler) RunNpmCommandStream(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(int64)
+	role := c.Locals("role").(string)
+	appID := c.Params("id")
+	command := c.Query("command")
+
+	if command == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Komut belirtilmedi",
+		})
+	}
+
+	// Validate and get app
+	app, errResp := h.validateNpmCommand(c, userID, role, appID, command)
+	if errResp != nil {
+		return errResp
+	}
+
+	// Set SSE headers
+	c.Set("Content-Type", "text/event-stream")
+	c.Set("Cache-Control", "no-cache")
+	c.Set("Connection", "keep-alive")
+	c.Set("Transfer-Encoding", "chunked")
+	c.Set("Access-Control-Allow-Origin", "*")
+
+	// Run npm command with streaming
+	npmCmd := fmt.Sprintf(`
+		export HOME=/root
+		export NVM_DIR="$HOME/.nvm"
+		[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+		cd %s
+		npm %s 2>&1
+	`, app.AppRoot, command)
+
+	cmd := exec.Command("bash", "-c", npmCmd)
+	cmd.Env = append(os.Environ(), "HOME=/root")
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Komut başlatılamadı",
+		})
+	}
+
+	if err := cmd.Start(); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Komut başlatılamadı",
+		})
+	}
+
+	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
+		scanner := bufio.NewScanner(stdout)
+		for scanner.Scan() {
+			line := scanner.Text()
+			// SSE format: data: <message>\n\n
+			fmt.Fprintf(w, "data: %s\n\n", line)
+			w.Flush()
+		}
+
+		// Wait for command to finish
+		err := cmd.Wait()
+		if err != nil {
+			fmt.Fprintf(w, "data: [ERROR] Komut hata ile sonlandı: %v\n\n", err)
+		} else {
+			fmt.Fprintf(w, "data: [DONE] Komut başarıyla tamamlandı\n\n")
+		}
+		w.Flush()
+	})
+
+	return nil
+}
+
+// validateNpmCommand validates npm command and returns the app
+func (h *Handler) validateNpmCommand(c *fiber.Ctx, userID int64, role, appID, command string) (*NodejsApp, error) {
+	// Validate command - only allow safe npm commands
+	allowedCommands := map[string]bool{
+		"install": true,
+		"ci":      true,
+		"build":   true,
+		"start":   true,
+		"test":    true,
+		"audit":   true,
+	}
+
+	// Check if it's a "run <script>" command
+	cmdParts := strings.Fields(command)
+	if len(cmdParts) == 0 {
+		return nil, c.Status(fiber.StatusBadRequest).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Komut belirtilmedi",
+		})
+	}
+
+	baseCmd := cmdParts[0]
+	if baseCmd == "run" && len(cmdParts) >= 2 {
+		baseCmd = "run"
+	}
+
+	if !allowedCommands[baseCmd] && baseCmd != "run" {
+		return nil, c.Status(fiber.StatusBadRequest).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Bu komut izin verilmiyor: " + command,
+		})
+	}
+
+	// Get app
+	var app NodejsApp
+	err := h.db.QueryRow("SELECT id, user_id, app_root, node_version FROM nodejs_apps WHERE id = ?", appID).Scan(&app.ID, &app.UserID, &app.AppRoot, &app.NodeVersion)
+	if err != nil {
+		return nil, c.Status(fiber.StatusNotFound).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Uygulama bulunamadı",
+		})
+	}
+
+	// Check permission
+	if role != "admin" && app.UserID != userID {
+		return nil, c.Status(fiber.StatusForbidden).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Bu uygulamada komut çalıştırma yetkiniz yok",
+		})
+	}
+
+	// If running a script, check package.json for dangerous commands
+	if baseCmd == "run" && len(cmdParts) >= 2 {
+		scriptName := cmdParts[1]
+		packageJsonPath := filepath.Join(app.AppRoot, "package.json")
+		if data, err := os.ReadFile(packageJsonPath); err == nil {
+			var packageJson struct {
+				Scripts map[string]string `json:"scripts"`
+			}
+			if json.Unmarshal(data, &packageJson) == nil {
+				if script, exists := packageJson.Scripts[scriptName]; exists {
+					if dangerous, pattern := containsDangerousCommand(script); dangerous {
+						return nil, c.Status(fiber.StatusForbidden).JSON(models.APIResponse{
+							Success: false,
+							Error:   fmt.Sprintf("Bu script güvenlik nedeniyle engellenmiştir. Tehlikeli komut tespit edildi: '%s'", pattern),
+						})
+					}
+				}
+			}
+		}
+	}
+
+	return &app, nil
 }
 
 // Helper functions

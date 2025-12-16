@@ -301,10 +301,47 @@ export default function NodejsApps() {
     }
   };
 
-  const runNpmCommand = async (command: string) => {
+  const runNpmCommand = (command: string) => {
     if (!selectedApp) return;
     setNpmLoading(true);
     setNpmOutput('');
+    
+    // Get token for auth (SSE doesn't support headers, so we use query param)
+    const token = localStorage.getItem('token');
+    const baseUrl = import.meta.env.VITE_API_URL || '';
+    const url = `${baseUrl}/api/nodejs/apps/${selectedApp.id}/npm/stream?command=${encodeURIComponent(command)}&token=${token}`;
+    
+    // Create EventSource
+    const eventSource = new EventSource(url);
+    let output = '';
+    
+    eventSource.onmessage = (event) => {
+      const data = event.data;
+      
+      if (data.startsWith('[DONE]') || data.startsWith('[ERROR]')) {
+        eventSource.close();
+        setNpmLoading(false);
+        fetchApps();
+      }
+      
+      output += data + '\n';
+      setNpmOutput(output);
+    };
+    
+    eventSource.onerror = () => {
+      eventSource.close();
+      setNpmLoading(false);
+      if (!output) {
+        // Fallback to non-streaming if SSE fails
+        runNpmCommandFallback(command);
+      }
+    };
+  };
+
+  const runNpmCommandFallback = async (command: string) => {
+    if (!selectedApp) return;
+    setNpmLoading(true);
+    setNpmOutput('Komut çalıştırılıyor...\n');
     try {
       const response = await api.post(`/nodejs/apps/${selectedApp.id}/npm`, { command });
       setNpmOutput(response.data.data || response.data.message || 'Komut çalıştırıldı');

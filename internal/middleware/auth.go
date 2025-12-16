@@ -11,24 +11,29 @@ import (
 // AuthMiddleware validates JWT tokens
 func AuthMiddleware(secret string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		var tokenString string
+
+		// First try Authorization header
 		authHeader := c.Get("Authorization")
-		if authHeader == "" {
-			return c.Status(fiber.StatusUnauthorized).JSON(models.APIResponse{
-				Success: false,
-				Error:   "Missing authorization header",
-			})
+		if authHeader != "" {
+			// Extract token from "Bearer <token>"
+			parts := strings.Split(authHeader, " ")
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				tokenString = parts[1]
+			}
 		}
 
-		// Extract token from "Bearer <token>"
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			return c.Status(fiber.StatusUnauthorized).JSON(models.APIResponse{
-				Success: false,
-				Error:   "Invalid authorization header format",
-			})
+		// Fallback to query param for SSE (EventSource doesn't support headers)
+		if tokenString == "" {
+			tokenString = c.Query("token")
 		}
 
-		tokenString := parts[1]
+		if tokenString == "" {
+			return c.Status(fiber.StatusUnauthorized).JSON(models.APIResponse{
+				Success: false,
+				Error:   "Missing authorization",
+			})
+		}
 		claims, err := auth.ValidateToken(tokenString, secret)
 		if err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(models.APIResponse{
