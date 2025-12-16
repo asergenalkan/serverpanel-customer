@@ -18,6 +18,8 @@ import {
   AlertTriangle,
   Check,
   X,
+  Terminal,
+  Package,
 } from 'lucide-react';
 import api from '@/lib/api';
 
@@ -57,10 +59,13 @@ export default function NodejsApps() {
   const [userHomeDir, setUserHomeDir] = useState('');
   const [showLogsModal, setShowLogsModal] = useState(false);
   const [showEnvModal, setShowEnvModal] = useState(false);
+  const [showNpmModal, setShowNpmModal] = useState(false);
   const [selectedApp, setSelectedApp] = useState<NodejsApp | null>(null);
   const [logs, setLogs] = useState('');
   const [envVars, setEnvVars] = useState<{key: string, value: string}[]>([]);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+  const [npmOutput, setNpmOutput] = useState('');
+  const [npmLoading, setNpmLoading] = useState(false);
 
   const [newApp, setNewApp] = useState({
     name: '',
@@ -275,6 +280,29 @@ export default function NodejsApps() {
     }
   };
 
+  const openNpmModal = (app: NodejsApp) => {
+    setSelectedApp(app);
+    setNpmOutput('');
+    setShowNpmModal(true);
+  };
+
+  const runNpmCommand = async (command: string) => {
+    if (!selectedApp) return;
+    setNpmLoading(true);
+    setNpmOutput('');
+    try {
+      const response = await api.post(`/nodejs/apps/${selectedApp.id}/npm`, { command });
+      setNpmOutput(response.data.data || response.data.message || 'Komut çalıştırıldı');
+      if (response.data.success) {
+        fetchApps();
+      }
+    } catch (err: any) {
+      setNpmOutput(err.response?.data?.data || err.response?.data?.error || 'Komut çalıştırılamadı');
+    } finally {
+      setNpmLoading(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'online':
@@ -403,6 +431,9 @@ export default function NodejsApps() {
                               <Play className="w-4 h-4" />
                             </Button>
                           )}
+                          <Button variant="outline" size="sm" onClick={() => openNpmModal(app)} title="NPM Komutları">
+                            <Terminal className="w-4 h-4" />
+                          </Button>
                           <Button variant="outline" size="sm" onClick={() => viewLogs(app)} title="Loglar">
                             <FileText className="w-4 h-4" />
                           </Button>
@@ -637,6 +668,101 @@ export default function NodejsApps() {
             <div className="flex justify-end gap-2 mt-6">
               <Button variant="outline" onClick={() => setShowEnvModal(false)}>İptal</Button>
               <Button onClick={saveEnv}>Kaydet</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* NPM Commands Modal */}
+      {showNpmModal && selectedApp && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-background rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <Terminal className="w-5 h-5" />
+              NPM Komutları - {selectedApp.name}
+            </h2>
+            
+            <div className="mb-4">
+              <p className="text-sm text-muted-foreground mb-3">
+                Dizin: <code className="bg-muted px-2 py-1 rounded">{selectedApp.app_root}</code>
+              </p>
+              
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => runNpmCommand('install')}
+                  disabled={npmLoading}
+                  className="justify-start"
+                >
+                  <Package className="w-4 h-4 mr-2" />
+                  npm install
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => runNpmCommand('ci')}
+                  disabled={npmLoading}
+                  className="justify-start"
+                >
+                  <Package className="w-4 h-4 mr-2" />
+                  npm ci
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => runNpmCommand('run build')}
+                  disabled={npmLoading}
+                  className="justify-start"
+                >
+                  <Terminal className="w-4 h-4 mr-2" />
+                  npm run build
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => runNpmCommand('run start')}
+                  disabled={npmLoading}
+                  className="justify-start"
+                >
+                  <Play className="w-4 h-4 mr-2" />
+                  npm run start
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => runNpmCommand('test')}
+                  disabled={npmLoading}
+                  className="justify-start"
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  npm test
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => runNpmCommand('audit')}
+                  disabled={npmLoading}
+                  className="justify-start"
+                >
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  npm audit
+                </Button>
+              </div>
+            </div>
+
+            {npmLoading && (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-6 h-6 animate-spin mr-2" />
+                <span>Komut çalıştırılıyor...</span>
+              </div>
+            )}
+
+            {npmOutput && (
+              <div className="mt-4">
+                <h3 className="text-sm font-medium mb-2">Çıktı:</h3>
+                <pre className="bg-muted p-4 rounded-lg text-xs overflow-x-auto max-h-64 overflow-y-auto font-mono whitespace-pre-wrap">
+                  {npmOutput}
+                </pre>
+              </div>
+            )}
+
+            <div className="flex justify-end mt-6">
+              <Button variant="outline" onClick={() => setShowNpmModal(false)}>Kapat</Button>
             </div>
           </div>
         </div>

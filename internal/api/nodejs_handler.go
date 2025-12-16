@@ -525,6 +525,100 @@ func (h *Handler) GetNodejsAppLogs(c *fiber.Ctx) error {
 	})
 }
 
+// RunNpmCommand runs npm commands for a Node.js application
+func (h *Handler) RunNpmCommand(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(int64)
+	role := c.Locals("role").(string)
+	appID := c.Params("id")
+
+	var req struct {
+		Command string `json:"command"` // install, build, start, run <script>
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Geçersiz istek",
+		})
+	}
+
+	// Validate command - only allow safe npm commands
+	allowedCommands := map[string]bool{
+		"install": true,
+		"ci":      true,
+		"build":   true,
+		"start":   true,
+		"test":    true,
+		"audit":   true,
+	}
+
+	// Check if it's a "run <script>" command
+	cmdParts := strings.Fields(req.Command)
+	if len(cmdParts) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Komut belirtilmedi",
+		})
+	}
+
+	baseCmd := cmdParts[0]
+	if baseCmd == "run" && len(cmdParts) >= 2 {
+		// Allow npm run <script>
+		baseCmd = "run"
+	}
+
+	if !allowedCommands[baseCmd] && baseCmd != "run" {
+		return c.Status(fiber.StatusBadRequest).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Bu komut izin verilmiyor: " + req.Command,
+		})
+	}
+
+	// Get app
+	var app NodejsApp
+	err := h.db.QueryRow("SELECT id, user_id, app_root, node_version FROM nodejs_apps WHERE id = ?", appID).Scan(&app.ID, &app.UserID, &app.AppRoot, &app.NodeVersion)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Uygulama bulunamadı",
+		})
+	}
+
+	// Check permission
+	if role != "admin" && app.UserID != userID {
+		return c.Status(fiber.StatusForbidden).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Bu uygulamada komut çalıştırma yetkiniz yok",
+		})
+	}
+
+	// Run npm command
+	npmCmd := fmt.Sprintf(`
+		export HOME=/root
+		export NVM_DIR="$HOME/.nvm"
+		[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+		cd %s
+		npm %s 2>&1
+	`, app.AppRoot, req.Command)
+
+	cmd := exec.Command("bash", "-c", npmCmd)
+	cmd.Env = append(os.Environ(), "HOME=/root")
+	output, err := cmd.CombinedOutput()
+
+	if err != nil {
+		return c.JSON(models.APIResponse{
+			Success: false,
+			Error:   fmt.Sprintf("Komut başarısız: %s", string(output)),
+			Data:    string(output),
+		})
+	}
+
+	return c.JSON(models.APIResponse{
+		Success: true,
+		Message: "Komut başarıyla çalıştırıldı",
+		Data:    string(output),
+	})
+}
+
 // Helper functions
 
 func (h *Handler) findAvailablePort() int {
