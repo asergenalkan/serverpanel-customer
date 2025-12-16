@@ -301,41 +301,55 @@ export default function NodejsApps() {
     }
   };
 
-  const runNpmCommand = (command: string) => {
+  const runNpmCommand = async (command: string) => {
     if (!selectedApp) return;
     setNpmLoading(true);
     setNpmOutput('');
     
-    // Get token for auth (SSE doesn't support headers, so we use query param)
     const token = localStorage.getItem('token');
     const baseUrl = import.meta.env.VITE_API_URL || '';
     const url = `${baseUrl}/api/nodejs/apps/${selectedApp.id}/npm/stream?command=${encodeURIComponent(command)}&token=${token}`;
     
-    // Create EventSource
-    const eventSource = new EventSource(url);
-    let output = '';
-    
-    eventSource.onmessage = (event) => {
-      const data = event.data;
+    try {
+      const response = await fetch(url);
       
-      if (data.startsWith('[DONE]') || data.startsWith('[ERROR]')) {
-        eventSource.close();
-        setNpmLoading(false);
-        fetchApps();
+      if (!response.ok) {
+        throw new Error('Stream failed');
       }
       
-      output += data + '\n';
-      setNpmOutput(output);
-    };
-    
-    eventSource.onerror = () => {
-      eventSource.close();
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No reader');
+      }
+      
+      const decoder = new TextDecoder();
+      let output = '';
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value, { stream: true });
+        // Parse SSE data lines
+        const lines = chunk.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            output += data + '\n';
+            setNpmOutput(output);
+          }
+        }
+      }
+      
+      fetchApps();
+    } catch (err) {
+      console.error('Stream error:', err);
+      // Fallback to non-streaming
+      runNpmCommandFallback(command);
+      return;
+    } finally {
       setNpmLoading(false);
-      if (!output) {
-        // Fallback to non-streaming if SSE fails
-        runNpmCommandFallback(command);
-      }
-    };
+    }
   };
 
   const runNpmCommandFallback = async (command: string) => {
