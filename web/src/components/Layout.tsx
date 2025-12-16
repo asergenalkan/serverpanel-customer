@@ -35,6 +35,7 @@ import {
   Lock,
   ShieldCheck,
   Key,
+  Box,
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -56,6 +57,7 @@ const userMenuItems = [
   { icon: Server, label: 'Sunucu Özellikleri', href: '/server/features' },
   { icon: HardDrive, label: 'Backup', href: '/backup', disabled: true },
   { icon: Clock, label: 'Cron Jobs', href: '/cron' },
+  { icon: Box, label: 'Node.js Uygulamaları', href: '/nodejs' },
   { icon: Terminal, label: 'Terminal', href: '/terminal' },
 ];
 
@@ -73,6 +75,7 @@ const adminMenuItems = [
   { icon: Mail, label: 'E-posta', href: '/email' },
   { icon: Shield, label: 'Spam Filtreleri', href: '/spam-filters' },
   { icon: Clock, label: 'Cron Jobs', href: '/cron' },
+  { icon: Box, label: 'Node.js Uygulamaları', href: '/nodejs' },
   { icon: Terminal, label: 'Terminal', href: '/terminal' },
   { icon: Package, label: 'Paketler', href: '/packages' },
   { icon: Settings, label: 'Sunucu Ayarları', href: '/settings/server' },

@@ -2,7 +2,7 @@
 
 ## Mevcut Durum vs Hedef
 
-### ✅ Mevcut (ÇALIŞIYOR!) - Son Güncelleme: 5 Aralık 2025
+### ✅ Mevcut (ÇALIŞIYOR!) - Son Güncelleme: 16 Aralık 2025
 ```
 Admin giriş yapar
 ├── Hesap oluşturur → ✅ Gerçekten oluşur!
@@ -169,6 +169,23 @@ Admin giriş yapar
 │   ├── Manuel çalıştırma ve çıktı görüntüleme
 │   ├── Aktif/pasif durumu değiştirme
 │   └── Sistem crontab senkronizasyonu
+│
+├── Node.js Uygulama Yönetimi → ✅ Tam fonksiyonel!
+│   ├── NVM (Node Version Manager) entegrasyonu
+│   ├── PM2 process manager ile uygulama yönetimi
+│   ├── Birden fazla Node.js sürümü desteği (18, 20, 22, LTS)
+│   ├── Apache mod_proxy ile reverse proxy
+│   ├── Uygulama başlatma/durdurma/yeniden başlatma
+│   ├── Canlı log görüntüleme
+│   ├── Ortam değişkenleri yönetimi
+│   ├── Opsiyonel özellik (Sunucu Ayarları'ndan etkinleştirme)
+│   └── Yazılım Yöneticisi'nden kurulum/kaldırma
+│
+├── Web Terminal → ✅ Tam fonksiyonel!
+│   ├── WebSocket tabanlı terminal erişimi
+│   ├── xterm.js ile tam terminal emülasyonu
+│   ├── Tam ekran modu
+│   └── Keyboard shortcuts desteği
 │
 ├── FTP Yönetimi (Pure-FTPd) → ✅ Tam fonksiyonel!
 │   ├── FTP hesabı oluşturma/silme

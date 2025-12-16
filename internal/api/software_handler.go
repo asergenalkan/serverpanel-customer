@@ -855,3 +855,266 @@ func (h *Handler) UninstallSoftware(c *fiber.Ctx) error {
 		Message: fmt.Sprintf("%s başarıyla kaldırıldı", req.Package),
 	})
 }
+
+// GetNodejsStatus returns Node.js/NVM/PM2 installation status
+func (h *Handler) GetNodejsStatus(c *fiber.Ctx) error {
+	status := map[string]interface{}{
+		"nvm_installed":  h.isNVMInstalled(),
+		"pm2_installed":  h.isPM2Installed(),
+		"node_versions":  h.getInstalledNodeVersions(),
+		"active_version": h.getActiveNodeVersion(),
+	}
+
+	return c.JSON(models.APIResponse{
+		Success: true,
+		Data:    status,
+	})
+}
+
+// InstallNodejsSupport installs NVM and PM2
+func (h *Handler) InstallNodejsSupport(c *fiber.Ctx) error {
+	// Check if already installed
+	if h.isNVMInstalled() && h.isPM2Installed() {
+		return c.JSON(models.APIResponse{
+			Success: true,
+			Message: "Node.js desteği zaten kurulu",
+		})
+	}
+
+	// Install NVM
+	if !h.isNVMInstalled() {
+		nvmInstallCmd := `
+			export HOME=/root
+			curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+			export NVM_DIR="$HOME/.nvm"
+			[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+			nvm install --lts
+			nvm use --lts
+			nvm alias default lts/*
+		`
+		cmd := exec.Command("bash", "-c", nvmInstallCmd)
+		cmd.Env = append(os.Environ(), "HOME=/root")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(models.APIResponse{
+				Success: false,
+				Error:   fmt.Sprintf("NVM kurulumu başarısız: %s", string(output)),
+			})
+		}
+	}
+
+	// Install PM2 globally
+	pm2InstallCmd := `
+		export HOME=/root
+		export NVM_DIR="$HOME/.nvm"
+		[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+		npm install -g pm2
+		pm2 startup systemd -u root --hp /root
+	`
+	cmd := exec.Command("bash", "-c", pm2InstallCmd)
+	cmd.Env = append(os.Environ(), "HOME=/root")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(models.APIResponse{
+			Success: false,
+			Error:   fmt.Sprintf("PM2 kurulumu başarısız: %s", string(output)),
+		})
+	}
+
+	// Enable Apache proxy modules for Node.js apps
+	exec.Command("a2enmod", "proxy").Run()
+	exec.Command("a2enmod", "proxy_http").Run()
+	exec.Command("a2enmod", "proxy_wstunnel").Run()
+	exec.Command("systemctl", "reload", "apache2").Run()
+
+	// Update server setting
+	h.db.Exec(`INSERT INTO server_settings (key, value) VALUES ('nodejs_enabled', 'true') ON CONFLICT(key) DO UPDATE SET value = 'true'`)
+
+	return c.JSON(models.APIResponse{
+		Success: true,
+		Message: "Node.js desteği başarıyla kuruldu (NVM + PM2)",
+	})
+}
+
+// UninstallNodejsSupport removes NVM and PM2
+func (h *Handler) UninstallNodejsSupport(c *fiber.Ctx) error {
+	// Stop all PM2 processes
+	stopCmd := `
+		export HOME=/root
+		export NVM_DIR="$HOME/.nvm"
+		[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+		pm2 kill 2>/dev/null || true
+		pm2 unstartup systemd 2>/dev/null || true
+	`
+	exec.Command("bash", "-c", stopCmd).Run()
+
+	// Remove NVM directory
+	exec.Command("rm", "-rf", "/root/.nvm").Run()
+
+	// Remove NVM lines from bashrc
+	exec.Command("bash", "-c", `sed -i '/NVM_DIR/d' /root/.bashrc`).Run()
+
+	// Update server setting
+	h.db.Exec(`UPDATE server_settings SET value = 'false' WHERE key = 'nodejs_enabled'`)
+
+	return c.JSON(models.APIResponse{
+		Success: true,
+		Message: "Node.js desteği kaldırıldı",
+	})
+}
+
+// InstallNodeVersion installs a specific Node.js version
+func (h *Handler) InstallNodeVersion(c *fiber.Ctx) error {
+	var req struct {
+		Version string `json:"version"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Geçersiz istek",
+		})
+	}
+
+	// Validate version format (e.g., "18", "20", "lts")
+	if !regexp.MustCompile(`^(lts|\d+)$`).MatchString(req.Version) {
+		return c.Status(fiber.StatusBadRequest).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Geçersiz Node.js sürümü",
+		})
+	}
+
+	installCmd := fmt.Sprintf(`
+		export HOME=/root
+		export NVM_DIR="$HOME/.nvm"
+		[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+		nvm install %s
+	`, req.Version)
+
+	cmd := exec.Command("bash", "-c", installCmd)
+	cmd.Env = append(os.Environ(), "HOME=/root")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(models.APIResponse{
+			Success: false,
+			Error:   fmt.Sprintf("Node.js kurulumu başarısız: %s", string(output)),
+		})
+	}
+
+	return c.JSON(models.APIResponse{
+		Success: true,
+		Message: fmt.Sprintf("Node.js %s başarıyla kuruldu", req.Version),
+	})
+}
+
+// SetActiveNodeVersion sets the active Node.js version
+func (h *Handler) SetActiveNodeVersion(c *fiber.Ctx) error {
+	var req struct {
+		Version string `json:"version"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Geçersiz istek",
+		})
+	}
+
+	setCmd := fmt.Sprintf(`
+		export HOME=/root
+		export NVM_DIR="$HOME/.nvm"
+		[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+		nvm use %s
+		nvm alias default %s
+	`, req.Version, req.Version)
+
+	cmd := exec.Command("bash", "-c", setCmd)
+	cmd.Env = append(os.Environ(), "HOME=/root")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(models.APIResponse{
+			Success: false,
+			Error:   fmt.Sprintf("Node.js sürümü değiştirilemedi: %s", string(output)),
+		})
+	}
+
+	return c.JSON(models.APIResponse{
+		Success: true,
+		Message: fmt.Sprintf("Node.js %s aktif edildi", req.Version),
+	})
+}
+
+// Helper functions for Node.js
+func (h *Handler) isNVMInstalled() bool {
+	_, err := os.Stat("/root/.nvm/nvm.sh")
+	return err == nil
+}
+
+func (h *Handler) isPM2Installed() bool {
+	checkCmd := `
+		export HOME=/root
+		export NVM_DIR="$HOME/.nvm"
+		[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+		which pm2
+	`
+	cmd := exec.Command("bash", "-c", checkCmd)
+	cmd.Env = append(os.Environ(), "HOME=/root")
+	err := cmd.Run()
+	return err == nil
+}
+
+func (h *Handler) getInstalledNodeVersions() []map[string]interface{} {
+	versions := []map[string]interface{}{}
+
+	if !h.isNVMInstalled() {
+		return versions
+	}
+
+	listCmd := `
+		export HOME=/root
+		export NVM_DIR="$HOME/.nvm"
+		[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+		nvm ls --no-colors 2>/dev/null | grep -oP 'v\d+\.\d+\.\d+' | sort -V | uniq
+	`
+	cmd := exec.Command("bash", "-c", listCmd)
+	cmd.Env = append(os.Environ(), "HOME=/root")
+	output, err := cmd.Output()
+	if err != nil {
+		return versions
+	}
+
+	activeVersion := h.getActiveNodeVersion()
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			versions = append(versions, map[string]interface{}{
+				"version": line,
+				"active":  line == activeVersion,
+			})
+		}
+	}
+
+	return versions
+}
+
+func (h *Handler) getActiveNodeVersion() string {
+	if !h.isNVMInstalled() {
+		return ""
+	}
+
+	versionCmd := `
+		export HOME=/root
+		export NVM_DIR="$HOME/.nvm"
+		[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+		node --version 2>/dev/null
+	`
+	cmd := exec.Command("bash", "-c", versionCmd)
+	cmd.Env = append(os.Environ(), "HOME=/root")
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(string(output))
+}

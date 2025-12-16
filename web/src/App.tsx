@@ -32,6 +32,7 @@ import Firewall from '@/pages/security/Firewall';
 import SSHSecurity from '@/pages/security/SSHSecurity';
 import ModSecurity from '@/pages/security/ModSecurity';
 import Terminal from '@/pages/Terminal';
+import NodejsApps from '@/pages/NodejsApps';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -340,6 +341,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Terminal />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/nodejs"
+        element={
+          <ProtectedRoute>
+            <NodejsApps />
           </ProtectedRoute>
         }
       />

@@ -14,6 +14,7 @@ type ServerSettings struct {
 	DefaultPHPVersion  string   `json:"default_php_version"`
 	AllowedPHPVersions []string `json:"allowed_php_versions"`
 	DomainBasedPHP     bool     `json:"domain_based_php"`
+	NodejsEnabled      bool     `json:"nodejs_enabled"`
 }
 
 // GetServerSettings returns server settings (admin only)
@@ -41,6 +42,8 @@ func (h *Handler) GetServerSettings(c *fiber.Ctx) error {
 				settings.AllowedPHPVersions = strings.Split(value, ",")
 			case "domain_based_php":
 				settings.DomainBasedPHP = value == "true"
+			case "nodejs_enabled":
+				settings.NodejsEnabled = value == "true"
 			}
 		}
 	}
@@ -79,6 +82,7 @@ func (h *Handler) UpdateServerSettings(c *fiber.Ctx) error {
 		"default_php_version":  req.DefaultPHPVersion,
 		"allowed_php_versions": strings.Join(req.AllowedPHPVersions, ","),
 		"domain_based_php":     boolToString(req.DomainBasedPHP),
+		"nodejs_enabled":       boolToString(req.NodejsEnabled),
 	}
 
 	for key, value := range updates {

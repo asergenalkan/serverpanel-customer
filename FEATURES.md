@@ -4,7 +4,7 @@ Bu dosya WHM/cPanel özelliklerini analiz eder ve ServerPanel'e eklenecek özell
 
 ---
 
-## 📊 Mevcut Durum Özeti (Son Güncelleme: 5 Aralık 2025)
+## 📊 Mevcut Durum Özeti (Son Güncelleme: 16 Aralık 2025)
 
 | Kategori | cPanel/WHM | ServerPanel | Tamamlanma |
 |----------|------------|-------------|------------|
@@ -20,6 +20,7 @@ Bu dosya WHM/cPanel özelliklerini analiz eder ve ServerPanel'e eklenecek özell
 | SSL/TLS | ✅ | ✅ Let's Encrypt + Otomatik Vhost | %98 |
 | **PHP Yönetimi** | ✅ | ✅ **MultiPHP + Yazılım Yöneticisi** | **%95** |
 | **Sunucu Yönetimi** | ✅ | ✅ **Sunucu Durumu + Yazılım Yöneticisi + Sistem Sağlığı** | **%95** |
+| **Node.js Yönetimi** | ✅ | ✅ **NVM + PM2 + Apache Proxy** | **%90** |
 | Backup | ✅ | ❌ | %0 |
 | **Cron Jobs** | ✅ | ✅ **Tam fonksiyonel** | **%95** |
 | **Güvenlik** | ✅ | ✅ **Fail2ban + UFW + SSH Key + Malware + ModSecurity** | **%95** |
@@ -27,8 +28,25 @@ Bu dosya WHM/cPanel özelliklerini analiz eder ve ServerPanel'e eklenecek özell
 | Reseller Sistemi | ✅ | ⚠️ Rol var | %10 |
 | **Kurulum Scripti** | ✅ | ✅ Tam otomatik + Migration + Mail + MultiPHP | %98 |
 | **UI/UX** | ✅ | ✅ **Lottie Loading Animasyonları + Tema Uyumu** | **%90** |
+| **Terminal** | ✅ | ✅ **WebSocket Terminal** | **%95** |
 
-### 🆕 Son Eklenen Özellikler (5 Aralık 2025)
+### 🆕 Son Eklenen Özellikler (16 Aralık 2025)
+- ✅ **Node.js Uygulama Yönetimi** (YENİ!)
+  - NVM (Node Version Manager) entegrasyonu
+  - PM2 process manager ile uygulama yönetimi
+  - Birden fazla Node.js sürümü desteği
+  - Apache mod_proxy ile reverse proxy
+  - Uygulama başlatma/durdurma/yeniden başlatma
+  - Canlı log görüntüleme
+  - Ortam değişkenleri yönetimi
+  - Opsiyonel özellik (Sunucu Ayarları'ndan etkinleştirme)
+- ✅ **Web Terminal** (YENİ!)
+  - WebSocket tabanlı terminal erişimi
+  - xterm.js ile tam terminal emülasyonu
+  - Tam ekran modu
+  - Keyboard shortcuts desteği
+
+### Önceki Özellikler (5 Aralık 2025)
 - ✅ **ModSecurity WAF** (YENİ!)
   - Web Application Firewall
   - OWASP Core Rule Set (CRS) entegrasyonu

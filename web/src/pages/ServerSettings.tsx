@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import Layout from '@/components/Layout';
 import LoadingAnimation from '@/components/LoadingAnimation';
-import { Settings, Save, RefreshCw, Check, Info } from 'lucide-react';
+import { Settings, Save, RefreshCw, Check, Info, Box } from 'lucide-react';
 import api from '@/lib/api';
 
 interface ServerSettingsData {
@@ -11,6 +11,7 @@ interface ServerSettingsData {
   default_php_version: string;
   allowed_php_versions: string[];
   domain_based_php: boolean;
+  nodejs_enabled: boolean;
 }
 
 interface PHPVersion {
@@ -25,6 +26,7 @@ export default function ServerSettings() {
     default_php_version: '8.1',
     allowed_php_versions: ['7.4', '8.0', '8.1', '8.2', '8.3'],
     domain_based_php: true,
+    nodejs_enabled: false,
   });
   const [installedPHP, setInstalledPHP] = useState<PHPVersion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -235,6 +237,49 @@ export default function ServerSettings() {
           </CardContent>
         </Card>
 
+        {/* Node.js Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Box className="w-5 h-5" />
+              Node.js Ayarları
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Enable/Disable Node.js */}
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <p className="font-medium">Node.js Desteği</p>
+                <p className="text-sm text-muted-foreground">
+                  Kullanıcıların Node.js/Next.js uygulamaları çalıştırmasına izin ver
+                </p>
+                {!settings.nodejs_enabled && (
+                  <p className="text-xs text-amber-500 mt-1">
+                    ⚠️ Etkinleştirildiğinde NVM ve PM2 kurulumu yapılacaktır
+                  </p>
+                )}
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.nodejs_enabled}
+                  onChange={(e) => setSettings({ ...settings, nodejs_enabled: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+              </label>
+            </div>
+
+            {settings.nodejs_enabled && (
+              <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                <p className="text-sm text-green-600 dark:text-green-400">
+                  ✓ Node.js desteği aktif. Kullanıcılar "Node.js Uygulamaları" sayfasından uygulama oluşturabilir.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Info Card */}
         <Card>
           <CardContent className="pt-6">
@@ -246,6 +291,7 @@ export default function ServerSettings() {
                   <li><strong>MultiPHP Aktif:</strong> Kullanıcılar PHP Ayarları sayfasından PHP sürümü seçebilir</li>
                   <li><strong>Domain Bazlı PHP:</strong> Her domain için farklı PHP sürümü kullanılabilir</li>
                   <li><strong>İzin Verilen Sürümler:</strong> Sadece işaretli sürümler kullanıcılara sunulur</li>
+                  <li><strong>Node.js Desteği:</strong> PM2 ile Node.js uygulamaları yönetimi (Express, Next.js, vb.)</li>
                   <li>Kurulu olmayan PHP sürümleri seçilemez. Önce Yazılım Yöneticisi'nden kurun.</li>
                 </ul>
               </div>

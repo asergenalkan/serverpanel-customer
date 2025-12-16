@@ -17,6 +17,8 @@ import {
   ChevronRight,
   Search,
   AlertTriangle,
+  Box,
+  Loader2,
 } from 'lucide-react';
 import api from '@/lib/api';
 
@@ -57,7 +59,12 @@ export default function SoftwareManager() {
   const [overview, setOverview] = useState<SoftwareOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'php' | 'extensions' | 'apache' | 'software'>('php');
+  const [activeTab, setActiveTab] = useState<'php' | 'extensions' | 'apache' | 'software' | 'nodejs'>('php');
+  
+  // Node.js state
+  const [nodejsStatus, setNodejsStatus] = useState<any>(null);
+  const [nodejsLoading, setNodejsLoading] = useState(false);
+  const [installingNodejs, setInstallingNodejs] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedPHP, setExpandedPHP] = useState<string | null>(null);
   
@@ -69,6 +76,83 @@ export default function SoftwareManager() {
   useEffect(() => {
     fetchOverview();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'nodejs') {
+      fetchNodejsStatus();
+    }
+  }, [activeTab]);
+
+  const fetchNodejsStatus = async () => {
+    setNodejsLoading(true);
+    try {
+      const response = await api.get('/software/nodejs/status');
+      if (response.data.success) {
+        setNodejsStatus(response.data.data);
+      }
+    } catch (err) {
+      console.error('Node.js status fetch failed:', err);
+    } finally {
+      setNodejsLoading(false);
+    }
+  };
+
+  const installNodejsSupport = async () => {
+    if (!confirm('Node.js desteği kurulacak (NVM + PM2). Bu işlem birkaç dakika sürebilir. Devam etmek istiyor musunuz?')) return;
+    setInstallingNodejs(true);
+    try {
+      const response = await api.post('/software/nodejs/install');
+      if (response.data.success) {
+        alert(response.data.message);
+        fetchNodejsStatus();
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Node.js kurulumu başarısız');
+    } finally {
+      setInstallingNodejs(false);
+    }
+  };
+
+  const uninstallNodejsSupport = async () => {
+    if (!confirm('Node.js desteği kaldırılacak (NVM + PM2). Tüm Node.js uygulamaları çalışmayı durduracak. Devam etmek istiyor musunuz?')) return;
+    setInstallingNodejs(true);
+    try {
+      const response = await api.post('/software/nodejs/uninstall');
+      if (response.data.success) {
+        alert(response.data.message);
+        fetchNodejsStatus();
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Node.js kaldırma başarısız');
+    } finally {
+      setInstallingNodejs(false);
+    }
+  };
+
+  const installNodeVersion = async (version: string) => {
+    if (!confirm(`Node.js ${version} kurulacak. Devam etmek istiyor musunuz?`)) return;
+    try {
+      const response = await api.post('/software/nodejs/version/install', { version });
+      if (response.data.success) {
+        alert(response.data.message);
+        fetchNodejsStatus();
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Node.js versiyon kurulumu başarısız');
+    }
+  };
+
+  const setActiveNodeVersion = async (version: string) => {
+    try {
+      const response = await api.post('/software/nodejs/version/set-active', { version });
+      if (response.data.success) {
+        alert(response.data.message);
+        fetchNodejsStatus();
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Node.js versiyon değiştirme başarısız');
+    }
+  };
 
   const fetchOverview = async () => {
     setLoading(true);
@@ -195,6 +279,7 @@ export default function SoftwareManager() {
             { id: 'extensions', label: 'PHP Eklentileri', count: overview?.php_extensions.filter(e => e.installed).length || 0 },
             { id: 'apache', label: 'Apache Modülleri', count: overview?.apache_modules.filter(m => m.enabled).length || 0 },
             { id: 'software', label: 'Ek Yazılımlar', count: overview?.additional_software.filter(s => s.installed).length || 0 },
+            { id: 'nodejs', label: 'Node.js', count: nodejsStatus?.node_versions?.length || 0 },
           ].map(tab => (
             <button
               key={tab.id}
@@ -469,6 +554,161 @@ export default function SoftwareManager() {
                     </CardContent>
                   </Card>
                 ))}
+              </div>
+            )}
+
+            {/* Node.js Tab */}
+            {activeTab === 'nodejs' && (
+              <div className="space-y-6">
+                {nodejsLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  </div>
+                ) : !nodejsStatus?.nvm_installed ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Box className="w-5 h-5" />
+                        Node.js Desteği Kurulu Değil
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <p className="text-muted-foreground">
+                        Node.js desteği aktif değil. Kurulum yapıldığında NVM (Node Version Manager) ve PM2 (Process Manager) kurulacaktır.
+                      </p>
+                      <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
+                        <li>Birden fazla Node.js sürümü yönetimi (NVM)</li>
+                        <li>Node.js uygulama yönetimi (PM2)</li>
+                        <li>Otomatik yeniden başlatma</li>
+                        <li>Apache reverse proxy entegrasyonu</li>
+                      </ul>
+                      <Button 
+                        onClick={installNodejsSupport} 
+                        disabled={installingNodejs}
+                        className="w-full md:w-auto"
+                      >
+                        {installingNodejs ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Kuruluyor...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-4 h-4 mr-2" />
+                            Node.js Desteğini Kur
+                          </>
+                        )}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <>
+                    {/* Status Card */}
+                    <Card className="border-green-500/50">
+                      <CardHeader>
+                        <CardTitle className="flex items-center justify-between">
+                          <span className="flex items-center gap-2">
+                            <Box className="w-5 h-5" />
+                            Node.js Desteği
+                          </span>
+                          <span className="flex items-center gap-1 text-sm text-green-500">
+                            <Check className="w-4 h-4" />
+                            Aktif
+                          </span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="p-3 bg-muted rounded-lg">
+                            <p className="text-xs text-muted-foreground">NVM</p>
+                            <p className="font-medium text-green-500">Kurulu</p>
+                          </div>
+                          <div className="p-3 bg-muted rounded-lg">
+                            <p className="text-xs text-muted-foreground">PM2</p>
+                            <p className="font-medium text-green-500">{nodejsStatus?.pm2_installed ? 'Kurulu' : 'Kurulu Değil'}</p>
+                          </div>
+                          <div className="p-3 bg-muted rounded-lg">
+                            <p className="text-xs text-muted-foreground">Aktif Sürüm</p>
+                            <p className="font-medium font-mono">{nodejsStatus?.active_version || '-'}</p>
+                          </div>
+                          <div className="p-3 bg-muted rounded-lg">
+                            <p className="text-xs text-muted-foreground">Kurulu Sürümler</p>
+                            <p className="font-medium">{nodejsStatus?.node_versions?.length || 0}</p>
+                          </div>
+                        </div>
+                        <Button 
+                          variant="destructive" 
+                          size="sm"
+                          onClick={uninstallNodejsSupport}
+                          disabled={installingNodejs}
+                        >
+                          {installingNodejs ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4 mr-2" />
+                          )}
+                          Node.js Desteğini Kaldır
+                        </Button>
+                      </CardContent>
+                    </Card>
+
+                    {/* Installed Versions */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Kurulu Node.js Sürümleri</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {nodejsStatus?.node_versions?.length > 0 ? (
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {nodejsStatus.node_versions.map((v: any) => (
+                              <div 
+                                key={v.version} 
+                                className={`p-3 border rounded-lg ${v.active ? 'border-green-500 bg-green-500/10' : ''}`}
+                              >
+                                <p className="font-mono font-medium">{v.version}</p>
+                                {v.active ? (
+                                  <span className="text-xs text-green-500">Aktif</span>
+                                ) : (
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="text-xs p-0 h-auto"
+                                    onClick={() => setActiveNodeVersion(v.version)}
+                                  >
+                                    Aktif Yap
+                                  </Button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-muted-foreground text-sm">Henüz Node.js sürümü kurulmamış.</p>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    {/* Install New Version */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Yeni Sürüm Kur</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                          {['18', '20', '22', 'lts'].map(v => (
+                            <Button
+                              key={v}
+                              variant="outline"
+                              onClick={() => installNodeVersion(v)}
+                            >
+                              <Download className="w-4 h-4 mr-2" />
+                              {v === 'lts' ? 'LTS' : `Node ${v}`}
+                            </Button>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </>
+                )}
               </div>
             )}
           </>

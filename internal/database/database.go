@@ -359,6 +359,30 @@ func (db *DB) migrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_mail_queue_scheduled_at ON mail_queue(scheduled_at)`,
 		`CREATE INDEX IF NOT EXISTS idx_malware_scans_user_id ON malware_scans(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_malware_scans_status ON malware_scans(status)`,
+
+		// Node.js Apps table
+		`CREATE TABLE IF NOT EXISTS nodejs_apps (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			domain_id INTEGER,
+			name TEXT NOT NULL,
+			app_root TEXT NOT NULL,
+			startup_file TEXT DEFAULT 'app.js',
+			node_version TEXT DEFAULT 'lts',
+			port INTEGER NOT NULL,
+			app_url TEXT,
+			mode TEXT DEFAULT 'production',
+			environment TEXT,
+			auto_restart INTEGER DEFAULT 1,
+			status TEXT DEFAULT 'stopped',
+			pm2_id INTEGER,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+			FOREIGN KEY (domain_id) REFERENCES domains(id) ON DELETE SET NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_nodejs_apps_user_id ON nodejs_apps(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_nodejs_apps_status ON nodejs_apps(status)`,
 	}
 
 	for _, migration := range migrations {
@@ -394,7 +418,8 @@ func (db *DB) migrate() error {
 		('multiphp_enabled', 'true'),
 		('default_php_version', '8.1'),
 		('allowed_php_versions', '7.4,8.0,8.1,8.2,8.3'),
-		('domain_based_php', 'true')
+		('domain_based_php', 'true'),
+		('nodejs_enabled', 'false')
 	`)
 
 	// Create default admin user if not exists
