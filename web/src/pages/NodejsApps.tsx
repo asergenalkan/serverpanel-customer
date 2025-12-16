@@ -301,72 +301,59 @@ export default function NodejsApps() {
     }
   };
 
-  const runNpmCommand = async (command: string) => {
+  const runNpmCommand = (command: string) => {
     if (!selectedApp) return;
     setNpmLoading(true);
     setNpmOutput('');
     
     const token = localStorage.getItem('token');
-    const baseUrl = import.meta.env.VITE_API_URL || '';
-    const url = `${baseUrl}/api/nodejs/apps/${selectedApp.id}/npm/stream?command=${encodeURIComponent(command)}&token=${token}`;
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsHost = import.meta.env.VITE_API_URL ? new URL(import.meta.env.VITE_API_URL).host : window.location.host;
+    const wsUrl = `${wsProtocol}//${wsHost}/api/v1/ws/npm/${selectedApp.id}?command=${encodeURIComponent(command)}&token=${token}`;
     
-    try {
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error('Stream failed');
-      }
-      
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error('No reader');
-      }
-      
-      const decoder = new TextDecoder();
-      let output = '';
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        const chunk = decoder.decode(value, { stream: true });
-        // Parse SSE data lines
-        const lines = chunk.split('\n');
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            output += data + '\n';
-            setNpmOutput(output);
-          }
+    const ws = new WebSocket(wsUrl);
+    let output = '';
+    
+    ws.onopen = () => {
+      output = '> npm ' + command + '\n\n';
+      setNpmOutput(output);
+    };
+    
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'output') {
+          output += msg.data + '\n';
+          setNpmOutput(output);
+        } else if (msg.type === 'done') {
+          output += '\n✓ ' + msg.data + '\n';
+          setNpmOutput(output);
+          setNpmLoading(false);
+          fetchApps();
+          ws.close();
+        } else if (msg.type === 'error') {
+          output += '\n✗ ' + msg.data + '\n';
+          setNpmOutput(output);
+          setNpmLoading(false);
+          ws.close();
+        } else if (msg.type === 'start') {
+          output += msg.data + '\n\n';
+          setNpmOutput(output);
         }
+      } catch {
+        output += event.data + '\n';
+        setNpmOutput(output);
       }
-      
-      fetchApps();
-    } catch (err) {
-      console.error('Stream error:', err);
-      // Fallback to non-streaming
-      runNpmCommandFallback(command);
-      return;
-    } finally {
+    };
+    
+    ws.onerror = () => {
+      setNpmOutput(output + '\n✗ Bağlantı hatası\n');
       setNpmLoading(false);
-    }
-  };
-
-  const runNpmCommandFallback = async (command: string) => {
-    if (!selectedApp) return;
-    setNpmLoading(true);
-    setNpmOutput('Komut çalıştırılıyor...\n');
-    try {
-      const response = await api.post(`/nodejs/apps/${selectedApp.id}/npm`, { command });
-      setNpmOutput(response.data.data || response.data.message || 'Komut çalıştırıldı');
-      if (response.data.success) {
-        fetchApps();
-      }
-    } catch (err: any) {
-      setNpmOutput(err.response?.data?.data || err.response?.data?.error || 'Komut çalıştırılamadı');
-    } finally {
+    };
+    
+    ws.onclose = () => {
       setNpmLoading(false);
-    }
+    };
   };
 
   const getStatusBadge = (status: string) => {

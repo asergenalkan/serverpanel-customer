@@ -53,6 +53,7 @@ func main() {
 	})
 	app.Get("/api/v1/ws/tasks/:task_id", websocket.New(api.HandleTaskWebSocketDirect(db, cfg)))
 	app.Get("/api/v1/ws/terminal", websocket.New(api.HandleTerminalWebSocketDirect(db, cfg)))
+	app.Get("/api/v1/ws/npm/:id", websocket.New(api.HandleNpmWebSocketDirect(db, cfg)))
 
 	// API routes
 	apiRouter := app.Group("/api/v1")

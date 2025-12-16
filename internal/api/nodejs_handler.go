@@ -11,7 +11,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/asergenalkan/serverpanel/internal/config"
+	"github.com/asergenalkan/serverpanel/internal/database"
 	"github.com/asergenalkan/serverpanel/internal/models"
+	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -718,34 +721,48 @@ func (h *Handler) RunNpmCommand(c *fiber.Ctx) error {
 	})
 }
 
-// RunNpmCommandStream runs npm commands with real-time streaming output (SSE)
-func (h *Handler) RunNpmCommandStream(c *fiber.Ctx) error {
-	userID := c.Locals("user_id").(int64)
-	role := c.Locals("role").(string)
+// HandleNpmWebSocketDirect returns a WebSocket handler for NPM commands
+func HandleNpmWebSocketDirect(db *database.DB, cfg *config.Config) func(*websocket.Conn) {
+	h := &Handler{db: db, cfg: cfg}
+	return h.HandleNpmWebSocket
+}
+
+// HandleNpmWebSocket handles WebSocket connections for NPM command output
+func (h *Handler) HandleNpmWebSocket(c *websocket.Conn) {
+	// Get params
+	token := c.Query("token")
 	appID := c.Params("id")
 	command := c.Query("command")
 
-	if command == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(models.APIResponse{
-			Success: false,
-			Error:   "Komut belirtilmedi",
-		})
+	if token == "" || appID == "" || command == "" {
+		c.WriteJSON(map[string]interface{}{"type": "error", "data": "Eksik parametreler"})
+		c.Close()
+		return
 	}
 
-	// Validate and get app
-	app, errResp := h.validateNpmCommand(c, userID, role, appID, command)
-	if errResp != nil {
-		return errResp
+	// Validate token
+	claims, err := h.validateToken(token)
+	if err != nil {
+		c.WriteJSON(map[string]interface{}{"type": "error", "data": "Yetkisiz erişim"})
+		c.Close()
+		return
 	}
 
-	// Set SSE headers
-	c.Set("Content-Type", "text/event-stream")
-	c.Set("Cache-Control", "no-cache")
-	c.Set("Connection", "keep-alive")
-	c.Set("Transfer-Encoding", "chunked")
-	c.Set("Access-Control-Allow-Origin", "*")
+	userID := int64(claims["user_id"].(float64))
+	role := claims["role"].(string)
 
-	// Run npm command with streaming
+	// Validate command
+	app, valid := h.validateNpmCommandWs(userID, role, appID, command)
+	if !valid {
+		c.WriteJSON(map[string]interface{}{"type": "error", "data": "Geçersiz komut veya yetki"})
+		c.Close()
+		return
+	}
+
+	// Send start message
+	c.WriteJSON(map[string]interface{}{"type": "start", "data": "Komut başlatılıyor: npm " + command})
+
+	// Run npm command
 	npmCmd := fmt.Sprintf(`
 		export HOME=/root
 		export NVM_DIR="$HOME/.nvm"
@@ -759,39 +776,86 @@ func (h *Handler) RunNpmCommandStream(c *fiber.Ctx) error {
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(models.APIResponse{
-			Success: false,
-			Error:   "Komut başlatılamadı",
-		})
+		c.WriteJSON(map[string]interface{}{"type": "error", "data": "Komut başlatılamadı"})
+		c.Close()
+		return
 	}
 
 	if err := cmd.Start(); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(models.APIResponse{
-			Success: false,
-			Error:   "Komut başlatılamadı",
-		})
+		c.WriteJSON(map[string]interface{}{"type": "error", "data": "Komut başlatılamadı"})
+		c.Close()
+		return
 	}
 
-	c.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
-		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
-			line := scanner.Text()
-			// SSE format: data: <message>\n\n
-			fmt.Fprintf(w, "data: %s\n\n", line)
-			w.Flush()
+	// Read output line by line and send via WebSocket
+	scanner := bufio.NewScanner(stdout)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if err := c.WriteJSON(map[string]interface{}{"type": "output", "data": line}); err != nil {
+			cmd.Process.Kill()
+			return
 		}
+	}
 
-		// Wait for command to finish
-		err := cmd.Wait()
-		if err != nil {
-			fmt.Fprintf(w, "data: [ERROR] Komut hata ile sonlandı: %v\n\n", err)
-		} else {
-			fmt.Fprintf(w, "data: [DONE] Komut başarıyla tamamlandı\n\n")
+	// Wait for command to finish
+	err = cmd.Wait()
+	if err != nil {
+		c.WriteJSON(map[string]interface{}{"type": "error", "data": fmt.Sprintf("Komut hata ile sonlandı: %v", err)})
+	} else {
+		c.WriteJSON(map[string]interface{}{"type": "done", "data": "Komut başarıyla tamamlandı"})
+	}
+}
+
+// validateNpmCommandWs validates npm command for WebSocket (no fiber.Ctx)
+func (h *Handler) validateNpmCommandWs(userID int64, role, appID, command string) (*NodejsApp, bool) {
+	allowedCommands := map[string]bool{
+		"install": true, "ci": true, "build": true,
+		"start": true, "test": true, "audit": true,
+	}
+
+	cmdParts := strings.Fields(command)
+	if len(cmdParts) == 0 {
+		return nil, false
+	}
+
+	baseCmd := cmdParts[0]
+	if baseCmd == "run" && len(cmdParts) >= 2 {
+		baseCmd = "run"
+	}
+
+	if !allowedCommands[baseCmd] && baseCmd != "run" {
+		return nil, false
+	}
+
+	var app NodejsApp
+	err := h.db.QueryRow("SELECT id, user_id, app_root, node_version FROM nodejs_apps WHERE id = ?", appID).Scan(&app.ID, &app.UserID, &app.AppRoot, &app.NodeVersion)
+	if err != nil {
+		return nil, false
+	}
+
+	if role != "admin" && app.UserID != userID {
+		return nil, false
+	}
+
+	// Check dangerous scripts
+	if baseCmd == "run" && len(cmdParts) >= 2 {
+		scriptName := cmdParts[1]
+		packageJsonPath := filepath.Join(app.AppRoot, "package.json")
+		if data, err := os.ReadFile(packageJsonPath); err == nil {
+			var packageJson struct {
+				Scripts map[string]string `json:"scripts"`
+			}
+			if json.Unmarshal(data, &packageJson) == nil {
+				if script, exists := packageJson.Scripts[scriptName]; exists {
+					if dangerous, _ := containsDangerousCommand(script); dangerous {
+						return nil, false
+					}
+				}
+			}
 		}
-		w.Flush()
-	})
+	}
 
-	return nil
+	return &app, true
 }
 
 // validateNpmCommand validates npm command and returns the app
