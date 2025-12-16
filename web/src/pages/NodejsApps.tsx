@@ -41,6 +41,11 @@ interface NodejsApp {
   created_at: string;
   domain_name: string;
   username: string;
+  // PM2 stats
+  cpu: number;
+  memory: number;
+  uptime: number;
+  restarts: number;
 }
 
 interface DomainOrSubdomain {
@@ -370,6 +375,21 @@ export default function NodejsApps() {
     }
   };
 
+  const formatUptime = (uptimeMs: number) => {
+    if (!uptimeMs) return '-';
+    const now = Date.now();
+    const diff = now - uptimeMs;
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    
+    if (days > 0) return `${days}g ${hours % 24}s`;
+    if (hours > 0) return `${hours}s ${minutes % 60}d`;
+    if (minutes > 0) return `${minutes}d ${seconds % 60}sn`;
+    return `${seconds}sn`;
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -519,6 +539,26 @@ export default function NodejsApps() {
                       <p className="text-muted-foreground">Mode</p>
                       <p>{app.mode}</p>
                     </div>
+                    {(app.status === 'online' || app.status === 'running') && (
+                      <>
+                        <div>
+                          <p className="text-muted-foreground">CPU</p>
+                          <p className="font-mono text-green-500">{app.cpu.toFixed(1)}%</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Bellek</p>
+                          <p className="font-mono text-blue-500">{(app.memory / 1024 / 1024).toFixed(1)} MB</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Uptime</p>
+                          <p className="font-mono">{formatUptime(app.uptime)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Yeniden Başlatma</p>
+                          <p className="font-mono">{app.restarts}</p>
+                        </div>
+                      </>
+                    )}
                     {app.app_url && (
                       <div className="col-span-2">
                         <p className="text-muted-foreground">URL</p>

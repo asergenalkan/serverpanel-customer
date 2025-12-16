@@ -39,6 +39,11 @@ type NodejsApp struct {
 	// Extra fields for display
 	DomainName string `json:"domain_name,omitempty"`
 	Username   string `json:"username,omitempty"`
+	// PM2 stats
+	CPU      float64 `json:"cpu"`
+	Memory   int64   `json:"memory"`
+	Uptime   int64   `json:"uptime"`
+	Restarts int     `json:"restarts"`
 }
 
 // ListNodejsApps returns all Node.js apps for the user
@@ -99,9 +104,14 @@ func (h *Handler) ListNodejsApps(c *fiber.Ctx) error {
 		}
 		app.AutoRestart = autoRestart == 1
 
-		// Get real-time status from PM2
+		// Get real-time status and stats from PM2
 		if app.PM2ID != nil {
-			app.Status = h.getPM2AppStatus(*app.PM2ID)
+			status, cpu, memory, uptime, restarts := h.getPM2AppStats(*app.PM2ID)
+			app.Status = status
+			app.CPU = cpu
+			app.Memory = memory
+			app.Uptime = uptime
+			app.Restarts = restarts
 		}
 
 		apps = append(apps, app)
@@ -942,26 +952,54 @@ func (h *Handler) findAvailablePort() int {
 	return maxPort + 1
 }
 
-func (h *Handler) getPM2AppStatus(pm2ID int) string {
-	statusCmd := fmt.Sprintf(`
+func (h *Handler) getPM2AppStats(pm2ID int) (status string, cpu float64, memory int64, uptime int64, restarts int) {
+	// Get PM2 process list as JSON
+	statsCmd := `
 		export HOME=/root
 		export NVM_DIR="$HOME/.nvm"
 		[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-		pm2 show %d 2>/dev/null | grep "│ status" | head -1 | sed 's/.*│ //' | sed 's/ *│.*//' | tr -d ' '
-	`, pm2ID)
+		pm2 jlist 2>/dev/null
+	`
 
-	cmd := exec.Command("bash", "-c", statusCmd)
+	cmd := exec.Command("bash", "-c", statsCmd)
 	cmd.Env = append(os.Environ(), "HOME=/root")
 	output, err := cmd.Output()
 	if err != nil {
-		return "unknown"
+		return "unknown", 0, 0, 0, 0
 	}
 
-	status := strings.TrimSpace(string(output))
-	if status == "" {
-		return "stopped"
+	// Parse JSON
+	var pm2List []struct {
+		PmID  int    `json:"pm_id"`
+		Name  string `json:"name"`
+		Monit struct {
+			Memory int64   `json:"memory"`
+			CPU    float64 `json:"cpu"`
+		} `json:"monit"`
+		PM2Env struct {
+			Status      string `json:"status"`
+			PmUptime    int64  `json:"pm_uptime"`
+			RestartTime int    `json:"restart_time"`
+		} `json:"pm2_env"`
 	}
-	return status
+
+	if err := json.Unmarshal(output, &pm2List); err != nil {
+		return "unknown", 0, 0, 0, 0
+	}
+
+	// Find the app by PM2 ID
+	for _, app := range pm2List {
+		if app.PmID == pm2ID {
+			status = app.PM2Env.Status
+			cpu = app.Monit.CPU
+			memory = app.Monit.Memory
+			uptime = app.PM2Env.PmUptime
+			restarts = app.PM2Env.RestartTime
+			return
+		}
+	}
+
+	return "stopped", 0, 0, 0, 0
 }
 
 func (h *Handler) getPM2AppID(name string) int {
