@@ -20,7 +20,7 @@ Bu dosya WHM/cPanel özelliklerini analiz eder ve ServerPanel'e eklenecek özell
 | SSL/TLS | ✅ | ✅ Let's Encrypt + Otomatik Vhost | %98 |
 | **PHP Yönetimi** | ✅ | ✅ **MultiPHP + Yazılım Yöneticisi** | **%95** |
 | **Sunucu Yönetimi** | ✅ | ✅ **Sunucu Durumu + Yazılım Yöneticisi + Sistem Sağlığı** | **%95** |
-| **Node.js Yönetimi** | ✅ | ✅ **NVM + PM2 + Apache Proxy** | **%90** |
+| **Node.js Yönetimi** | ✅ | ✅ **NVM + PM2 + NPM + Kaynak İzleme** | **%95** |
 | Backup | ✅ | ❌ | %0 |
 | **Cron Jobs** | ✅ | ✅ **Tam fonksiyonel** | **%95** |
 | **Güvenlik** | ✅ | ✅ **Fail2ban + UFW + SSH Key + Malware + ModSecurity** | **%95** |
@@ -31,7 +31,7 @@ Bu dosya WHM/cPanel özelliklerini analiz eder ve ServerPanel'e eklenecek özell
 | **Terminal** | ✅ | ✅ **WebSocket Terminal** | **%95** |
 
 ### 🆕 Son Eklenen Özellikler (16 Aralık 2025)
-- ✅ **Node.js Uygulama Yönetimi** (YENİ!)
+- ✅ **Node.js Uygulama Yönetimi** (GÜNCELLENDİ!)
   - NVM (Node Version Manager) entegrasyonu
   - PM2 process manager ile uygulama yönetimi
   - Birden fazla Node.js sürümü desteği
@@ -40,6 +40,16 @@ Bu dosya WHM/cPanel özelliklerini analiz eder ve ServerPanel'e eklenecek özell
   - Canlı log görüntüleme
   - Ortam değişkenleri yönetimi
   - Opsiyonel özellik (Sunucu Ayarları'ndan etkinleştirme)
+  - **NPM Komutları** (YENİ!)
+    - npm install, build, run script vb.
+    - WebSocket ile real-time output (terminal deneyimi)
+    - package.json scriptlerini otomatik tespit
+    - Tehlikeli komut engelleme (güvenlik)
+  - **PM2 Kaynak İzleme** (YENİ!)
+    - CPU kullanımı (%)
+    - RAM kullanımı (MB)
+    - Uptime (ne kadar süredir çalışıyor)
+    - Restart sayısı
 - ✅ **Web Terminal** (YENİ!)
   - WebSocket tabanlı terminal erişimi
   - xterm.js ile tam terminal emülasyonu
@@ -922,4 +932,4 @@ Bir hosting müşterisinin temel ihtiyaçlarına göre sıralandı:
 
 ---
 
-*Son güncelleme: 3 Aralık 2025*
+*Son güncelleme: 16 Aralık 2025*

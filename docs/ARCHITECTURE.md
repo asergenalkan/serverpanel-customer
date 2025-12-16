@@ -179,7 +179,12 @@ Admin giriş yapar
 │   ├── Canlı log görüntüleme
 │   ├── Ortam değişkenleri yönetimi
 │   ├── Opsiyonel özellik (Sunucu Ayarları'ndan etkinleştirme)
-│   └── Yazılım Yöneticisi'nden kurulum/kaldırma
+│   ├── Yazılım Yöneticisi'nden kurulum/kaldırma
+│   ├── **NPM Komutları** (install, build, run script vb.)
+│   │   ├── WebSocket ile real-time output
+│   │   ├── package.json scriptlerini otomatik tespit
+│   │   └── Tehlikeli komut engelleme (güvenlik)
+│   └── **PM2 Kaynak İzleme** (CPU, RAM, Uptime, Restarts)
 │
 ├── Web Terminal → ✅ Tam fonksiyonel!
 │   ├── WebSocket tabanlı terminal erişimi
