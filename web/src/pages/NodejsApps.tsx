@@ -18,7 +18,6 @@ import {
   AlertTriangle,
   Check,
   X,
-  FolderOpen,
 } from 'lucide-react';
 import api from '@/lib/api';
 
@@ -42,17 +41,20 @@ interface NodejsApp {
   username: string;
 }
 
-interface Domain {
+interface DomainOrSubdomain {
   id: number;
   name: string;
+  type: 'domain' | 'subdomain';
+  document_root?: string;
 }
 
 export default function NodejsApps() {
   const [apps, setApps] = useState<NodejsApp[]>([]);
-  const [domains, setDomains] = useState<Domain[]>([]);
+  const [domains, setDomains] = useState<DomainOrSubdomain[]>([]);
   const [loading, setLoading] = useState(true);
   const [nodejsEnabled, setNodejsEnabled] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [userHomeDir, setUserHomeDir] = useState('');
   const [showLogsModal, setShowLogsModal] = useState(false);
   const [showEnvModal, setShowEnvModal] = useState(false);
   const [selectedApp, setSelectedApp] = useState<NodejsApp | null>(null);
@@ -104,10 +106,40 @@ export default function NodejsApps() {
 
   const fetchDomains = async () => {
     try {
-      const response = await api.get('/domains');
-      if (response.data.success) {
-        setDomains(response.data.data || []);
+      // Fetch domains
+      const domainsRes = await api.get('/domains');
+      const domainList: DomainOrSubdomain[] = [];
+      
+      if (domainsRes.data.success && domainsRes.data.data) {
+        for (const d of domainsRes.data.data) {
+          domainList.push({
+            id: d.id,
+            name: d.name,
+            type: 'domain',
+            document_root: d.document_root,
+          });
+          // Set user home dir from first domain
+          if (!userHomeDir && d.document_root) {
+            const homeDir = d.document_root.replace('/public_html', '');
+            setUserHomeDir(homeDir);
+          }
+        }
       }
+      
+      // Fetch subdomains
+      const subdomainsRes = await api.get('/subdomains');
+      if (subdomainsRes.data.success && subdomainsRes.data.data) {
+        for (const s of subdomainsRes.data.data) {
+          domainList.push({
+            id: s.id,
+            name: s.full_domain || s.name,
+            type: 'subdomain',
+            document_root: s.document_root,
+          });
+        }
+      }
+      
+      setDomains(domainList);
     } catch (err) {
       console.error('Failed to fetch domains:', err);
     }
@@ -434,21 +466,18 @@ export default function NodejsApps() {
                   placeholder="my-app"
                   className="w-full p-2 border rounded-lg bg-background"
                 />
+                <p className="text-xs text-muted-foreground mt-1">Sadece harf, rakam, - ve _ kullanılabilir</p>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Uygulama Dizini *</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newApp.app_root}
-                    onChange={(e) => setNewApp({ ...newApp, app_root: e.target.value })}
-                    placeholder="/home/user/myapp"
-                    className="flex-1 p-2 border rounded-lg bg-background"
-                  />
-                  <Button variant="outline" size="sm" className="shrink-0">
-                    <FolderOpen className="w-4 h-4" />
-                  </Button>
-                </div>
+                <input
+                  type="text"
+                  value={newApp.app_root || (userHomeDir ? `${userHomeDir}/` : '')}
+                  onChange={(e) => setNewApp({ ...newApp, app_root: e.target.value })}
+                  placeholder={userHomeDir ? `${userHomeDir}/myapp` : '/home/user/myapp'}
+                  className="w-full p-2 border rounded-lg bg-background font-mono text-sm"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Node.js uygulamanızın bulunduğu dizin (package.json'ın olduğu yer)</p>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Başlangıç Dosyası</label>
@@ -459,6 +488,7 @@ export default function NodejsApps() {
                   placeholder="app.js"
                   className="w-full p-2 border rounded-lg bg-background"
                 />
+                <p className="text-xs text-muted-foreground mt-1">Uygulamayı başlatan dosya (örn: app.js, server.js, index.js). Bu dosyayı siz oluşturmalısınız.</p>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Node.js Sürümü</label>
@@ -474,28 +504,32 @@ export default function NodejsApps() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Domain (İsteğe Bağlı)</label>
+                <label className="block text-sm font-medium mb-1">Domain / Subdomain (İsteğe Bağlı)</label>
                 <select
-                  value={newApp.domain_id || ''}
-                  onChange={(e) => setNewApp({ ...newApp, domain_id: e.target.value ? parseInt(e.target.value) : null })}
+                  value={newApp.app_url || ''}
+                  onChange={(e) => {
+                    const selectedDomain = domains.find(d => d.name === e.target.value);
+                    setNewApp({ 
+                      ...newApp, 
+                      domain_id: selectedDomain?.type === 'domain' ? selectedDomain.id : null,
+                      app_url: e.target.value 
+                    });
+                  }}
                   className="w-full p-2 border rounded-lg bg-background"
                 >
-                  <option value="">Domain Seçin</option>
-                  {domains.map(d => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
+                  <option value="">Domain/Subdomain Seçin</option>
+                  <optgroup label="Domain'ler">
+                    {domains.filter(d => d.type === 'domain').map(d => (
+                      <option key={`domain-${d.id}`} value={d.name}>{d.name}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Subdomain'ler">
+                    {domains.filter(d => d.type === 'subdomain').map(d => (
+                      <option key={`subdomain-${d.id}`} value={d.name}>{d.name}</option>
+                    ))}
+                  </optgroup>
                 </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Uygulama URL Yolu</label>
-                <input
-                  type="text"
-                  value={newApp.app_url}
-                  onChange={(e) => setNewApp({ ...newApp, app_url: e.target.value })}
-                  placeholder="example.com/api"
-                  className="w-full p-2 border rounded-lg bg-background"
-                />
-                <p className="text-xs text-muted-foreground mt-1">Domain seçiliyse, bu yol için proxy yapılandırması oluşturulur</p>
+                <p className="text-xs text-muted-foreground mt-1">Seçilen domain/subdomain için Apache reverse proxy yapılandırılır</p>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Mode</label>
@@ -507,6 +541,17 @@ export default function NodejsApps() {
                   <option value="production">Production</option>
                   <option value="development">Development</option>
                 </select>
+              </div>
+
+              {/* Info Box */}
+              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-sm">
+                <p className="font-medium text-blue-600 dark:text-blue-400 mb-1">Nasıl Çalışır?</p>
+                <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+                  <li>Uygulama dizininde Node.js projeniz olmalı (package.json)</li>
+                  <li>Başlangıç dosyası (app.js vb.) siz oluşturmalısınız</li>
+                  <li>PM2 ile uygulamanız arka planda çalışır</li>
+                  <li>Otomatik port atanır ve Apache proxy yapılandırılır</li>
+                </ul>
               </div>
             </div>
             <div className="flex justify-end gap-2 mt-6">
