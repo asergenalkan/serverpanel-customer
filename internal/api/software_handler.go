@@ -903,13 +903,18 @@ func (h *Handler) InstallNodejsSupport(c *fiber.Ctx) error {
 		}
 	}
 
-	// Install PM2 globally
+	// Install PM2 globally and configure startup
 	pm2InstallCmd := `
 		export HOME=/root
 		export NVM_DIR="$HOME/.nvm"
 		[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 		npm install -g pm2
-		pm2 startup systemd -u root --hp /root
+		# Configure PM2 to start on boot
+		pm2 startup systemd -u root --hp /root --no-daemon 2>&1 | grep -E "sudo|env" | bash 2>/dev/null || true
+		# Enable PM2 service
+		systemctl enable pm2-root 2>/dev/null || true
+		# Save empty process list initially
+		pm2 save
 	`
 	cmd := exec.Command("bash", "-c", pm2InstallCmd)
 	cmd.Env = append(os.Environ(), "HOME=/root")
