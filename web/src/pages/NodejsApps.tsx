@@ -132,7 +132,7 @@ export default function NodejsApps() {
         for (const s of subdomainsRes.data.data) {
           domainList.push({
             id: s.id,
-            name: s.full_domain || s.name,
+            name: s.full_name || s.name,
             type: 'subdomain',
             document_root: s.document_root,
           });
