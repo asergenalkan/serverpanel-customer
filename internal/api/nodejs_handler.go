@@ -525,6 +525,148 @@ func (h *Handler) GetNodejsAppLogs(c *fiber.Ctx) error {
 	})
 }
 
+// Dangerous command patterns that are banned
+var dangerousPatterns = []string{
+	"rm -rf /",
+	"rm -rf /*",
+	"rm -rf ~",
+	"rm -rf $HOME",
+	"rm -rf /home",
+	"rm -rf /etc",
+	"rm -rf /var",
+	"rm -rf /usr",
+	"rm -rf /root",
+	"rm -rf /bin",
+	"rm -rf /sbin",
+	"rm -rf /opt",
+	"rm -rf /boot",
+	"rm -rf /lib",
+	"rm -rf /proc",
+	"rm -rf /sys",
+	"rm -rf /dev",
+	"rm -rf /mnt",
+	"rm -rf /srv",
+	"rm -rf /tmp",
+	"mkfs",
+	"dd if=",
+	":(){:|:&};:",
+	"chmod -R 777 /",
+	"chown -R",
+	"wget http",
+	"curl http",
+	"> /dev/sda",
+	"mv /* ",
+	"mv /home",
+	"mv /etc",
+	"shutdown",
+	"reboot",
+	"init 0",
+	"init 6",
+	"halt",
+	"poweroff",
+	"passwd",
+	"useradd",
+	"userdel",
+	"groupadd",
+	"groupdel",
+	"visudo",
+	"crontab",
+	"/etc/passwd",
+	"/etc/shadow",
+	"/etc/sudoers",
+	"nc -l",
+	"netcat",
+	"ncat",
+	"&&",
+	"||",
+	";",
+	"|",
+	"`",
+	"$(",
+	"eval",
+	"exec",
+	"source",
+	"export PATH",
+	"alias",
+}
+
+// containsDangerousCommand checks if a command contains dangerous patterns
+func containsDangerousCommand(cmd string) (bool, string) {
+	cmdLower := strings.ToLower(cmd)
+	for _, pattern := range dangerousPatterns {
+		if strings.Contains(cmdLower, strings.ToLower(pattern)) {
+			return true, pattern
+		}
+	}
+	return false, ""
+}
+
+// GetPackageJsonScripts returns scripts from package.json
+func (h *Handler) GetPackageJsonScripts(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(int64)
+	role := c.Locals("role").(string)
+	appID := c.Params("id")
+
+	// Get app
+	var app NodejsApp
+	err := h.db.QueryRow("SELECT id, user_id, app_root FROM nodejs_apps WHERE id = ?", appID).Scan(&app.ID, &app.UserID, &app.AppRoot)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Uygulama bulunamadı",
+		})
+	}
+
+	// Check permission
+	if role != "admin" && app.UserID != userID {
+		return c.Status(fiber.StatusForbidden).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Bu uygulamanın scriptlerini görme yetkiniz yok",
+		})
+	}
+
+	// Read package.json
+	packageJsonPath := filepath.Join(app.AppRoot, "package.json")
+	data, err := os.ReadFile(packageJsonPath)
+	if err != nil {
+		return c.JSON(models.APIResponse{
+			Success: true,
+			Data:    map[string]interface{}{"scripts": map[string]string{}, "has_package_json": false},
+		})
+	}
+
+	// Parse package.json
+	var packageJson struct {
+		Scripts map[string]string `json:"scripts"`
+	}
+	if err := json.Unmarshal(data, &packageJson); err != nil {
+		return c.JSON(models.APIResponse{
+			Success: true,
+			Data:    map[string]interface{}{"scripts": map[string]string{}, "has_package_json": true, "parse_error": true},
+		})
+	}
+
+	// Filter out dangerous scripts
+	safeScripts := make(map[string]string)
+	dangerousScripts := make(map[string]string)
+	for name, script := range packageJson.Scripts {
+		if dangerous, pattern := containsDangerousCommand(script); dangerous {
+			dangerousScripts[name] = fmt.Sprintf("Engellendi: '%s' içeriyor", pattern)
+		} else {
+			safeScripts[name] = script
+		}
+	}
+
+	return c.JSON(models.APIResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"scripts":           safeScripts,
+			"dangerous_scripts": dangerousScripts,
+			"has_package_json":  true,
+		},
+	})
+}
+
 // RunNpmCommand runs npm commands for a Node.js application
 func (h *Handler) RunNpmCommand(c *fiber.Ctx) error {
 	userID := c.Locals("user_id").(int64)
@@ -589,6 +731,27 @@ func (h *Handler) RunNpmCommand(c *fiber.Ctx) error {
 			Success: false,
 			Error:   "Bu uygulamada komut çalıştırma yetkiniz yok",
 		})
+	}
+
+	// If running a script, check package.json for dangerous commands
+	if baseCmd == "run" && len(cmdParts) >= 2 {
+		scriptName := cmdParts[1]
+		packageJsonPath := filepath.Join(app.AppRoot, "package.json")
+		if data, err := os.ReadFile(packageJsonPath); err == nil {
+			var packageJson struct {
+				Scripts map[string]string `json:"scripts"`
+			}
+			if json.Unmarshal(data, &packageJson) == nil {
+				if script, exists := packageJson.Scripts[scriptName]; exists {
+					if dangerous, pattern := containsDangerousCommand(script); dangerous {
+						return c.Status(fiber.StatusForbidden).JSON(models.APIResponse{
+							Success: false,
+							Error:   fmt.Sprintf("Bu script güvenlik nedeniyle engellenmiştir. Tehlikeli komut tespit edildi: '%s'", pattern),
+						})
+					}
+				}
+			}
+		}
 	}
 
 	// Run npm command

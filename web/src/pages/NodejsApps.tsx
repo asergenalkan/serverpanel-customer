@@ -66,6 +66,8 @@ export default function NodejsApps() {
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [npmOutput, setNpmOutput] = useState('');
   const [npmLoading, setNpmLoading] = useState(false);
+  const [packageScripts, setPackageScripts] = useState<Record<string, string>>({});
+  const [dangerousScripts, setDangerousScripts] = useState<Record<string, string>>({});
 
   const [newApp, setNewApp] = useState({
     name: '',
@@ -280,10 +282,23 @@ export default function NodejsApps() {
     }
   };
 
-  const openNpmModal = (app: NodejsApp) => {
+  const openNpmModal = async (app: NodejsApp) => {
     setSelectedApp(app);
     setNpmOutput('');
+    setPackageScripts({});
+    setDangerousScripts({});
     setShowNpmModal(true);
+    
+    // Fetch package.json scripts
+    try {
+      const response = await api.get(`/nodejs/apps/${app.id}/scripts`);
+      if (response.data.success && response.data.data) {
+        setPackageScripts(response.data.data.scripts || {});
+        setDangerousScripts(response.data.data.dangerous_scripts || {});
+      }
+    } catch (err) {
+      console.error('Failed to fetch scripts:', err);
+    }
   };
 
   const runNpmCommand = async (command: string) => {
@@ -687,7 +702,8 @@ export default function NodejsApps() {
                 Dizin: <code className="bg-muted px-2 py-1 rounded">{selectedApp.app_root}</code>
               </p>
               
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              <h3 className="text-sm font-medium mb-2">Temel Komutlar</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
                 <Button 
                   variant="outline" 
                   onClick={() => runNpmCommand('install')}
@@ -708,33 +724,6 @@ export default function NodejsApps() {
                 </Button>
                 <Button 
                   variant="outline" 
-                  onClick={() => runNpmCommand('run build')}
-                  disabled={npmLoading}
-                  className="justify-start"
-                >
-                  <Terminal className="w-4 h-4 mr-2" />
-                  npm run build
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => runNpmCommand('run start')}
-                  disabled={npmLoading}
-                  className="justify-start"
-                >
-                  <Play className="w-4 h-4 mr-2" />
-                  npm run start
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => runNpmCommand('test')}
-                  disabled={npmLoading}
-                  className="justify-start"
-                >
-                  <Check className="w-4 h-4 mr-2" />
-                  npm test
-                </Button>
-                <Button 
-                  variant="outline" 
                   onClick={() => runNpmCommand('audit')}
                   disabled={npmLoading}
                   className="justify-start"
@@ -743,6 +732,48 @@ export default function NodejsApps() {
                   npm audit
                 </Button>
               </div>
+
+              {/* Package.json Scripts */}
+              {Object.keys(packageScripts).length > 0 && (
+                <>
+                  <h3 className="text-sm font-medium mb-2">package.json Scriptleri</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
+                    {Object.entries(packageScripts).map(([name, script]) => (
+                      <Button 
+                        key={name}
+                        variant="outline" 
+                        onClick={() => runNpmCommand(`run ${name}`)}
+                        disabled={npmLoading}
+                        className="justify-start"
+                        title={script}
+                      >
+                        <Play className="w-4 h-4 mr-2" />
+                        npm run {name}
+                      </Button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Dangerous Scripts Warning */}
+              {Object.keys(dangerousScripts).length > 0 && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4">
+                  <h4 className="text-sm font-medium text-red-500 flex items-center gap-2 mb-2">
+                    <AlertTriangle className="w-4 h-4" />
+                    Engellenen Scriptler
+                  </h4>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Bu scriptler güvenlik nedeniyle engellenmiştir:
+                  </p>
+                  <ul className="text-xs space-y-1">
+                    {Object.entries(dangerousScripts).map(([name, reason]) => (
+                      <li key={name} className="text-red-400">
+                        <strong>{name}:</strong> {reason}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             {npmLoading && (
