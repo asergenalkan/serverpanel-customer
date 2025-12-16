@@ -536,7 +536,7 @@ func (h *Handler) getPM2AppStatus(pm2ID int) string {
 		export HOME=/root
 		export NVM_DIR="$HOME/.nvm"
 		[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-		pm2 jlist 2>/dev/null | jq -r '.[] | select(.pm_id == %d) | .pm2_env.status' 2>/dev/null
+		pm2 jlist 2>/dev/null | grep -o '"pm_id":%d[^}]*"status":"[^"]*"' | grep -o '"status":"[^"]*"' | cut -d'"' -f4
 	`, pm2ID)
 
 	cmd := exec.Command("bash", "-c", statusCmd)
@@ -558,7 +558,7 @@ func (h *Handler) getPM2AppID(name string) int {
 		export HOME=/root
 		export NVM_DIR="$HOME/.nvm"
 		[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-		pm2 jlist 2>/dev/null | jq -r '.[] | select(.name == "%s") | .pm_id' 2>/dev/null
+		pm2 jlist 2>/dev/null | grep -o '"name":"%s"[^}]*"pm_id":[0-9]*' | grep -o '"pm_id":[0-9]*' | cut -d':' -f2
 	`, name)
 
 	cmd := exec.Command("bash", "-c", idCmd)
