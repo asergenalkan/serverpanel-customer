@@ -261,6 +261,16 @@ fi
 # Postfix yeniden başlat (policy daemon için)
 systemctl restart postfix 2>/dev/null || true
 
+# PM2 Node.js uygulamalarını geri yükle (eğer NVM kuruluysa)
+if [ -d "/root/.nvm" ]; then
+    echo -e "${YELLOW}  Node.js uygulamaları geri yükleniyor...${NC}"
+    export HOME=/root
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    pm2 resurrect 2>/dev/null || true
+    echo -e "${GREEN}✓ Node.js uygulamaları geri yüklendi${NC}"
+fi
+
 # Durum kontrolü
 echo ""
 if systemctl is-active --quiet serverpanel; then

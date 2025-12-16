@@ -375,6 +375,9 @@ func (h *Handler) StopNodejsApp(c *fiber.Ctx) error {
 
 	h.db.Exec("UPDATE nodejs_apps SET status = 'stopped' WHERE id = ?", appID)
 
+	// Save PM2 process list (so resurrect knows this app should be stopped)
+	exec.Command("bash", "-c", `export HOME=/root && export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && pm2 save`).Run()
+
 	return c.JSON(models.APIResponse{
 		Success: true,
 		Message: "Uygulama durduruldu",
