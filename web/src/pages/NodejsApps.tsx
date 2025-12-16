@@ -488,7 +488,7 @@ export default function NodejsApps() {
                   placeholder="app.js"
                   className="w-full p-2 border rounded-lg bg-background"
                 />
-                <p className="text-xs text-muted-foreground mt-1">Uygulamayı başlatan dosya (örn: app.js, server.js, index.js). Bu dosyayı siz oluşturmalısınız.</p>
+                <p className="text-xs text-muted-foreground mt-1">Uygulamayı başlatan dosya. Yoksa otomatik oluşturulur.</p>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Node.js Sürümü</label>
@@ -544,11 +544,12 @@ export default function NodejsApps() {
               </div>
 
               {/* Info Box */}
-              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-sm">
-                <p className="font-medium text-blue-600 dark:text-blue-400 mb-1">Nasıl Çalışır?</p>
+              <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-sm">
+                <p className="font-medium text-green-600 dark:text-green-400 mb-1">✓ Otomatik Kurulum</p>
                 <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
-                  <li>Uygulama dizininde Node.js projeniz olmalı (package.json)</li>
-                  <li>Başlangıç dosyası (app.js vb.) siz oluşturmalısınız</li>
+                  <li>Dizin yoksa otomatik oluşturulur</li>
+                  <li>Başlangıç dosyası (app.js) ve package.json otomatik oluşturulur</li>
+                  <li>Hazır bir test sayfası ile başlarsınız</li>
                   <li>PM2 ile uygulamanız arka planda çalışır</li>
                   <li>Otomatik port atanır ve Apache proxy yapılandırılır</li>
                 </ul>

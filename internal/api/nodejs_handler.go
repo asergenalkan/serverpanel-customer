@@ -153,14 +153,6 @@ func (h *Handler) CreateNodejsApp(c *fiber.Ctx) error {
 		})
 	}
 
-	// Check if app root exists
-	if _, err := os.Stat(req.AppRoot); os.IsNotExist(err) {
-		return c.Status(fiber.StatusBadRequest).JSON(models.APIResponse{
-			Success: false,
-			Error:   "Uygulama dizini bulunamadı",
-		})
-	}
-
 	// Set defaults
 	if req.StartupFile == "" {
 		req.StartupFile = "app.js"
@@ -174,6 +166,82 @@ func (h *Handler) CreateNodejsApp(c *fiber.Ctx) error {
 
 	// Find available port
 	port := h.findAvailablePort()
+
+	// Create app directory if not exists
+	if _, err := os.Stat(req.AppRoot); os.IsNotExist(err) {
+		if err := os.MkdirAll(req.AppRoot, 0755); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(models.APIResponse{
+				Success: false,
+				Error:   "Uygulama dizini oluşturulamadı: " + err.Error(),
+			})
+		}
+		// Set ownership to user
+		exec.Command("chown", "-R", username+":"+username, req.AppRoot).Run()
+	}
+
+	// Create starter app.js if it doesn't exist
+	startupPath := filepath.Join(req.AppRoot, req.StartupFile)
+	if _, err := os.Stat(startupPath); os.IsNotExist(err) {
+		starterApp := fmt.Sprintf(`// Node.js Starter Application
+// Node.js Sürümü: %s
+// Port: %d (otomatik atandı)
+// Oluşturulma: ServerPanel tarafından otomatik oluşturuldu
+
+const http = require('http');
+
+const PORT = process.env.PORT || %d;
+
+const html = '<html><head><title>Node.js</title>' +
+  '<style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:linear-gradient(135deg,#667eea 0%%,#764ba2 100%%)}' +
+  '.container{background:white;padding:40px 60px;border-radius:16px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3)}' +
+  'h1{color:#333;margin:0 0 10px 0}.status{color:#22c55e;font-size:24px;margin-bottom:20px}.info{color:#666;font-size:14px}' +
+  '.version{background:#f0f0f0;padding:10px 20px;border-radius:8px;margin-top:20px;font-family:monospace}</style></head>' +
+  '<body><div class="container"><div class="status">✓ Çalışıyor</div><h1>Node.js Uygulaması</h1>' +
+  '<p class="info">Uygulama başarıyla çalışıyor!</p>' +
+  '<div class="version">Node.js: ' + process.version + '<br>Port: ' + PORT + '<br>Mode: %s</div>' +
+  '</div></body></html>';
+
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+  res.end(html);
+});
+
+server.listen(PORT, () => {
+  console.log('Server running at http://localhost:' + PORT);
+  console.log('Node.js Version: ' + process.version);
+});
+`, req.NodeVersion, port, port, req.Mode)
+
+		if err := os.WriteFile(startupPath, []byte(starterApp), 0644); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(models.APIResponse{
+				Success: false,
+				Error:   "Başlangıç dosyası oluşturulamadı: " + err.Error(),
+			})
+		}
+		// Set ownership
+		exec.Command("chown", username+":"+username, startupPath).Run()
+	}
+
+	// Create package.json if it doesn't exist
+	packagePath := filepath.Join(req.AppRoot, "package.json")
+	if _, err := os.Stat(packagePath); os.IsNotExist(err) {
+		packageJSON := fmt.Sprintf(`{
+  "name": "%s",
+  "version": "1.0.0",
+  "description": "Node.js application managed by ServerPanel",
+  "main": "%s",
+  "scripts": {
+    "start": "node %s"
+  },
+  "engines": {
+    "node": ">=%s"
+  }
+}
+`, req.Name, req.StartupFile, req.StartupFile, req.NodeVersion)
+
+		os.WriteFile(packagePath, []byte(packageJSON), 0644)
+		exec.Command("chown", username+":"+username, packagePath).Run()
+	}
 
 	// Insert into database
 	result, err := h.db.Exec(`
