@@ -116,8 +116,8 @@ function TopBar() {
     const fetchLoadAverage = async () => {
       try {
         const response = await systemAPI.getStats();
-        if (response.data?.load_average) {
-          setLoadAverage(response.data.load_average);
+        if (response.data?.data?.load_average) {
+          setLoadAverage(response.data.data.load_average);
         }
       } catch (err) {
         // Ignore errors
