@@ -285,21 +285,27 @@ func (h *Handler) getAntivirusStatus() *AntivirusStatus {
 
 	// Get virus database info
 	if status.ClamAVInstalled {
-		// Check last update time
-		if info, err := os.Stat("/var/lib/clamav/daily.cvd"); err == nil {
-			status.LastUpdate = info.ModTime().Format("2006-01-02 15:04")
-		} else if info, err := os.Stat("/var/lib/clamav/daily.cld"); err == nil {
-			status.LastUpdate = info.ModTime().Format("2006-01-02 15:04")
+		// Check last update time - try both .cvd and .cld files
+		dbFiles := []string{
+			"/var/lib/clamav/daily.cvd",
+			"/var/lib/clamav/daily.cld",
+			"/var/lib/clamav/main.cvd",
+			"/var/lib/clamav/main.cld",
 		}
 
-		// Get version
-		if out, err := exec.Command("sigtool", "--info", "/var/lib/clamav/daily.cvd").Output(); err == nil {
-			lines := strings.Split(string(out), "\n")
-			for _, line := range lines {
-				if strings.HasPrefix(line, "Version:") {
-					status.VirusDBVersion = strings.TrimSpace(strings.TrimPrefix(line, "Version:"))
-					break
-				}
+		for _, dbFile := range dbFiles {
+			if info, err := os.Stat(dbFile); err == nil {
+				status.LastUpdate = info.ModTime().Format("2006-01-02 15:04")
+				break
+			}
+		}
+
+		// Get version using clamscan --version (more reliable)
+		if out, err := exec.Command("clamscan", "--version").Output(); err == nil {
+			// Output format: ClamAV 0.103.8/27155/Wed Dec 25 09:24:01 2024
+			parts := strings.Split(strings.TrimSpace(string(out)), "/")
+			if len(parts) >= 2 {
+				status.VirusDBVersion = parts[1]
 			}
 		}
 	}

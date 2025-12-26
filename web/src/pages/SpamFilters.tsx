@@ -59,6 +59,7 @@ const SpamFiltersPage: React.FC = () => {
   
   const [newWhitelist, setNewWhitelist] = useState('');
   const [newBlacklist, setNewBlacklist] = useState('');
+  const [updatingVirusDb, setUpdatingVirusDb] = useState(false);
   
   // Malware scanning state
   const [scanning, setScanning] = useState(false);
@@ -155,6 +156,7 @@ const SpamFiltersPage: React.FC = () => {
 
   const updateVirusDb = async () => {
     setMessage(null);
+    setUpdatingVirusDb(true);
     try {
       const token = localStorage.getItem('token');
       const response = await fetch('/api/v1/spam/update-clamav', {
@@ -163,13 +165,19 @@ const SpamFiltersPage: React.FC = () => {
       });
       
       if (response.ok) {
-        setMessage({ type: 'success', text: 'Virüs veritabanı güncelleniyor...' });
-        setTimeout(fetchSettings, 5000);
+        setMessage({ type: 'success', text: 'Virüs veritabanı güncelleniyor... Bu işlem birkaç dakika sürebilir.' });
+        // 10 saniye sonra ayarları yenile
+        setTimeout(() => {
+          fetchSettings();
+          setUpdatingVirusDb(false);
+        }, 10000);
       } else {
         setMessage({ type: 'error', text: 'Güncelleme başlatılamadı' });
+        setUpdatingVirusDb(false);
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'Bağlantı hatası' });
+      setUpdatingVirusDb(false);
     }
   };
 
@@ -641,10 +649,11 @@ const SpamFiltersPage: React.FC = () => {
                   {antivirusStatus.clamav_installed && (
                     <button
                       onClick={updateVirusDb}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center space-x-2"
+                      disabled={updatingVirusDb}
+                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <RefreshCw className="w-4 h-4" />
-                      <span>Veritabanını Güncelle</span>
+                      <RefreshCw className={`w-4 h-4 ${updatingVirusDb ? 'animate-spin' : ''}`} />
+                      <span>{updatingVirusDb ? 'Güncelleniyor...' : 'Veritabanını Güncelle'}</span>
                     </button>
                   )}
                 </div>
