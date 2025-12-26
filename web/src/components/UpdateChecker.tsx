@@ -35,6 +35,7 @@ export function UpdateChecker() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [waitingForServer, setWaitingForServer] = useState(false);
   const [serverCheckCount, setServerCheckCount] = useState(0);
+  const [updateTimeout, setUpdateTimeout] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   const checkForUpdates = async () => {
@@ -118,6 +119,18 @@ export function UpdateChecker() {
     let interval: ReturnType<typeof setInterval>;
     if (waitingForServer) {
       interval = setInterval(checkServerHealth, 2000);
+      
+      // 2 dakika sonra timeout
+      const timeout = setTimeout(() => {
+        if (waitingForServer) {
+          setUpdateTimeout(true);
+        }
+      }, 120000);
+      
+      return () => {
+        clearInterval(interval);
+        clearTimeout(timeout);
+      };
     }
     return () => clearInterval(interval);
   }, [waitingForServer]);
@@ -156,6 +169,29 @@ export function UpdateChecker() {
               <Loader2 className="w-4 h-4 animate-spin" />
               <span>Bağlantı bekleniyor... ({serverCheckCount} deneme)</span>
             </div>
+            
+            {updateTimeout && (
+              <div className="p-4 rounded-lg border border-yellow-500/40 bg-yellow-500/5 space-y-2 w-full">
+                <div className="flex items-center gap-2 text-yellow-600 dark:text-yellow-500">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span className="font-medium text-sm">Güncelleme uzun sürüyor</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Sunucu henüz yanıt vermiyor. SSH ile bağlanıp kontrol edebilirsiniz:
+                </p>
+                <code className="block text-xs bg-muted p-2 rounded">
+                  cat /tmp/serverpanel-update.log
+                </code>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full mt-2"
+                  onClick={() => window.location.reload()}
+                >
+                  Sayfayı Yenile
+                </Button>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

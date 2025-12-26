@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -178,17 +179,23 @@ func runUpdateScript() {
 
 	addLog("Güncelleme başlatılıyor...")
 
-	// nohup ile script'i tamamen bağımsız çalıştır
-	// Backend kapansa bile script devam edecek
-	cmd := exec.Command("nohup", "bash", scriptPath)
+	// setsid ile script'i tamamen yeni bir session'da başlat
+	// Bu, parent process (backend) kapansa bile script'in devam etmesini sağlar
+	// nohup + setsid + background (&) kombinasyonu en güvenilir yöntem
+	cmd := exec.Command("setsid", "bash", "-c", fmt.Sprintf("nohup %s > /tmp/serverpanel-update.log 2>&1 &", scriptPath))
 	cmd.Dir = "/opt/serverpanel"
 
-	// Stdout ve stderr'i /dev/null'a yönlendir (bağımsız çalışması için)
+	// Tüm bağlantıları kes
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	cmd.Stdin = nil
 
-	if err := cmd.Start(); err != nil {
+	// SysProcAttr ile yeni process group oluştur
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+	}
+
+	if err := cmd.Run(); err != nil {
 		updateMutex.Lock()
 		updateStatus.IsRunning = false
 		updateStatus.Success = false
@@ -199,10 +206,7 @@ func runUpdateScript() {
 	}
 
 	addLog("Güncelleme script'i başlatıldı, servis yeniden başlatılacak...")
-
-	// Script'i beklemeden hemen çık - script bağımsız çalışacak
-	// Backend kapanacak ama script devam edecek
-	go cmd.Wait()
+	addLog("Log dosyası: /tmp/serverpanel-update.log")
 }
 
 // addLog - Log ekler (mutex ile)
