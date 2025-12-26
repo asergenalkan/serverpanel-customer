@@ -1,9 +1,10 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-type Theme = 'light' | 'dark';
+type Theme = 'light' | 'dark' | 'system';
 
 interface ThemeContextType {
   theme: Theme;
+  effectiveTheme: 'light' | 'dark';
   toggleTheme: () => void;
   setTheme: (theme: Theme) => void;
 }
@@ -12,30 +13,67 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
-    // Check localStorage first
-    const saved = localStorage.getItem('theme');
-    if (saved === 'dark' || saved === 'light') {
+    // Check localStorage first, default to 'system'
+    const saved = localStorage.getItem('theme') as Theme;
+    if (saved === 'light' || saved === 'dark' || saved === 'system') {
       return saved;
     }
-    // Check system preference
-    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      return 'dark';
-    }
-    return 'light';
+    return 'system';
   });
 
+  // Calculate effective theme (what actually gets applied)
+  const [effectiveTheme, setEffectiveTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('theme') as Theme;
+    if (saved === 'light' || saved === 'dark') {
+      return saved;
+    }
+    // Default to system preference
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  // Update effective theme when theme changes or system preference changes
+  useEffect(() => {
+    const updateEffectiveTheme = () => {
+      if (theme === 'system') {
+        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        setEffectiveTheme(systemTheme);
+      } else {
+        setEffectiveTheme(theme);
+      }
+    };
+
+    updateEffectiveTheme();
+
+    // Listen for system theme changes
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    mediaQuery.addEventListener('change', updateEffectiveTheme);
+
+    return () => {
+      mediaQuery.removeEventListener('change', updateEffectiveTheme);
+    };
+  }, [theme]);
+
+  // Apply effective theme to DOM
   useEffect(() => {
     const root = document.documentElement;
-    if (theme === 'dark') {
+    if (effectiveTheme === 'dark') {
       root.classList.add('dark');
     } else {
       root.classList.remove('dark');
     }
+  }, [effectiveTheme]);
+
+  // Save theme preference to localStorage
+  useEffect(() => {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
   const toggleTheme = () => {
-    setThemeState(prev => prev === 'light' ? 'dark' : 'light');
+    setThemeState(prev => {
+      if (prev === 'light') return 'dark';
+      if (prev === 'dark') return 'system';
+      return 'light';
+    });
   };
 
   const setTheme = (newTheme: Theme) => {
@@ -43,7 +81,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, effectiveTheme, toggleTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

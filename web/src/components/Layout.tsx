@@ -1,8 +1,8 @@
 import { ReactNode, useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/Button';
+import { ThemeDropdown } from '@/components/ui/ThemeDropdown';
 import {
   Server,
   LayoutDashboard,
@@ -17,8 +17,6 @@ import {
   Shield,
   HardDrive,
   Clock,
-  Sun,
-  Moon,
   Code,
   Upload,
   Globe2,
@@ -110,7 +108,6 @@ const securityItems = [
 
 export default function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const [serverStatusOpen, setServerStatusOpen] = useState(false);
   const [systemHealthOpen, setSystemHealthOpen] = useState(false);
@@ -146,20 +143,8 @@ export default function Layout({ children }: LayoutProps) {
             </div>
             <span className="font-bold text-lg">EticPanel</span>
           </div>
-          {/* Theme Toggle */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleTheme}
-            title={theme === 'light' ? 'Gece Modu' : 'Gündüz Modu'}
-            className="w-8 h-8"
-          >
-            {theme === 'light' ? (
-              <Moon className="w-4 h-4" />
-            ) : (
-              <Sun className="w-4 h-4 text-yellow-400" />
-            )}
-          </Button>
+          {/* Theme Dropdown */}
+          <ThemeDropdown />
         </div>
 
         {/* Menu */}
@@ -351,7 +336,7 @@ export default function Layout({ children }: LayoutProps) {
           <div className="flex items-center justify-between relative">
             <button
               onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className="flex items-center gap-2 hover:bg-muted p-1 pr-3 rounded-lg transition-colors"
+              className="flex items-center gap-2 hover:bg-muted/80 p-2 pr-3 rounded-lg transition-colors duration-200"
             >
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                 <User className="w-4 h-4 text-primary" />
@@ -367,15 +352,17 @@ export default function Layout({ children }: LayoutProps) {
 
             {/* Profile Dropdown */}
             {userMenuOpen && (
-              <div className="absolute bottom-full left-0 mb-2 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50 min-w-[160px]">
-                <Link
-                  to="/profile"
-                  onClick={() => setUserMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors"
-                >
-                  <Settings className="w-4 h-4" />
-                  <span className="text-sm">Profil Ayarları</span>
-                </Link>
+              <div className="absolute bottom-full left-0 mb-2 min-w-[160px] overflow-hidden rounded-lg border bg-background shadow-lg z-50">
+                <div className="p-1">
+                  <Link
+                    to="/profile"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex w-full cursor-pointer items-center rounded-md px-3 py-2 text-sm transition-colors duration-150 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-muted-foreground/20"
+                  >
+                    <Settings className="mr-3 h-4 w-4 text-muted-foreground" />
+                    <span className="flex-1 text-left">Profil Ayarları</span>
+                  </Link>
+                </div>
               </div>
             )}
           </div>

@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
+import { ThemeSelector } from '@/components/ui/ThemeSelector';
 import { Server, Lock, User } from 'lucide-react';
 
 export default function Login() {
@@ -47,6 +48,10 @@ export default function Login() {
                 Hosting ve sunucu yönetiminiz için modern kontrol paneli
               </p>
             </div>
+          </div>
+
+          <div className="flex justify-center">
+            <ThemeSelector />
           </div>
 
           <Card className="shadow-lg">
