@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -179,33 +178,36 @@ func runUpdateScript() {
 
 	addLog("Güncelleme başlatılıyor...")
 
-	// setsid ile script'i tamamen yeni bir session'da başlat
-	// Bu, parent process (backend) kapansa bile script'in devam etmesini sağlar
-	// nohup + setsid + background (&) kombinasyonu en güvenilir yöntem
-	cmd := exec.Command("setsid", "bash", "-c", fmt.Sprintf("nohup %s > /tmp/serverpanel-update.log 2>&1 &", scriptPath))
+	// 'at' komutu ile script'i tamamen bağımsız çalıştır
+	// atd daemon'u tarafından çalıştırılır, backend'den tamamen bağımsız
+	// Bu en güvenilir yöntem - SSH'dan farksız çalışır
+	cmd := exec.Command("bash", "-c", fmt.Sprintf("echo '%s > /tmp/serverpanel-update.log 2>&1' | at now", scriptPath))
 	cmd.Dir = "/opt/serverpanel"
 
-	// Tüm bağlantıları kes
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-	cmd.Stdin = nil
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// at komutu yoksa alternatif yöntem dene
+		addLog("'at' komutu başarısız, alternatif yöntem deneniyor...")
 
-	// SysProcAttr ile yeni process group oluştur
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
+		// Alternatif: systemd-run ile çalıştır (systemd tabanlı sistemlerde çalışır)
+		cmd2 := exec.Command("systemd-run", "--scope", "--quiet", "bash", "-c",
+			fmt.Sprintf("%s > /tmp/serverpanel-update.log 2>&1", scriptPath))
+		cmd2.Dir = "/opt/serverpanel"
+
+		if err2 := cmd2.Start(); err2 != nil {
+			updateMutex.Lock()
+			updateStatus.IsRunning = false
+			updateStatus.Success = false
+			updateStatus.ErrorMessage = "Script başlatılamadı: " + err.Error() + " / " + err2.Error()
+			updateStatus.CompletedAt = time.Now()
+			updateMutex.Unlock()
+			return
+		}
+		// systemd-run başarılı
+		go cmd2.Wait()
 	}
 
-	if err := cmd.Run(); err != nil {
-		updateMutex.Lock()
-		updateStatus.IsRunning = false
-		updateStatus.Success = false
-		updateStatus.ErrorMessage = "Script başlatılamadı: " + err.Error()
-		updateStatus.CompletedAt = time.Now()
-		updateMutex.Unlock()
-		return
-	}
-
-	addLog("Güncelleme script'i başlatıldı, servis yeniden başlatılacak...")
+	addLog("Güncelleme script'i başlatıldı (at/systemd-run): " + strings.TrimSpace(string(output)))
 	addLog("Log dosyası: /tmp/serverpanel-update.log")
 }
 
