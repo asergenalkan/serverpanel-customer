@@ -182,10 +182,13 @@ install_packages() {
     log_done "Paket listesi güncellendi"
     
     # Temel paketler (önce bunlar kurulmalı)
-    local base_packages=(curl wget git unzip tar net-tools sqlite3 build-essential debconf-utils)
+    local base_packages=(curl wget git unzip tar net-tools sqlite3 build-essential debconf-utils at)
     log_progress "Temel paketler kuruluyor"
     DEBIAN_FRONTEND=noninteractive apt-get install -y "${base_packages[@]}" > /dev/null 2>&1
     log_done "Temel paketler kuruldu"
+    
+    # at daemon'unu etkinleştir (panel güncellemeleri için gerekli)
+    systemctl enable --now atd > /dev/null 2>&1 || true
     
     # MySQL paketleri (mysql-common önce!)
     log_progress "MySQL kuruluyor"
