@@ -201,6 +201,7 @@ function AdminDashboard({ stats, loading }: { stats: DashboardStats | null; load
 
           {/* System Updates */}
           <h2 className="text-lg font-semibold">Sistem Güncellemeleri</h2>
+          <p className="text-xs text-muted-foreground mb-2">Panel v1.0.1 - Tek tıkla güncelleme aktif</p>
           <div className="max-w-md">
             <UpdateChecker />
           </div>
