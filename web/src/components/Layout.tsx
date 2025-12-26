@@ -1,6 +1,7 @@
 import { ReactNode, useState, useRef, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { systemAPI } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { ThemeDropdown } from '@/components/ui/ThemeDropdown';
 import {
@@ -105,6 +106,65 @@ const securityItems = [
   { icon: Key, label: 'SSH Güvenliği', href: '/security/ssh' },
   { icon: Shield, label: 'ModSecurity WAF', href: '/security/modsecurity' },
 ];
+
+// TopBar Component
+function TopBar() {
+  const navigate = useNavigate();
+  const [loadAverage, setLoadAverage] = useState<number[]>([0, 0, 0]);
+
+  useEffect(() => {
+    const fetchLoadAverage = async () => {
+      try {
+        const response = await systemAPI.getStats();
+        if (response.data?.load_average) {
+          setLoadAverage(response.data.load_average);
+        }
+      } catch (err) {
+        // Ignore errors
+      }
+    };
+
+    fetchLoadAverage();
+    const interval = setInterval(fetchLoadAverage, 30000); // Her 30 saniyede bir güncelle
+    return () => clearInterval(interval);
+  }, []);
+
+  const getLoadColor = (load: number) => {
+    if (load < 1) return 'text-green-500';
+    if (load < 2) return 'text-yellow-500';
+    return 'text-red-500';
+  };
+
+  return (
+    <div className="h-14 border-b border-[var(--color-sidebar-border)] bg-[var(--color-sidebar)] flex items-center justify-between px-6">
+      <div className="flex items-center gap-4">
+        {/* Breadcrumb veya sayfa başlığı buraya eklenebilir */}
+      </div>
+      
+      <button
+        onClick={() => navigate('/system/process-manager')}
+        className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer"
+        title="İşlem Yöneticisi'ni aç"
+      >
+        <Activity className="w-4 h-4 text-muted-foreground" />
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Load Average:</span>
+          <span className={`font-mono font-medium ${getLoadColor(loadAverage[0])}`}>
+            {loadAverage[0]?.toFixed(2) || '0.00'}
+          </span>
+          <span className="text-muted-foreground">,</span>
+          <span className={`font-mono font-medium ${getLoadColor(loadAverage[1])}`}>
+            {loadAverage[1]?.toFixed(2) || '0.00'}
+          </span>
+          <span className="text-muted-foreground">,</span>
+          <span className={`font-mono font-medium ${getLoadColor(loadAverage[2])}`}>
+            {loadAverage[2]?.toFixed(2) || '0.00'}
+          </span>
+        </div>
+      </button>
+    </div>
+  );
+}
 
 export default function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth();
@@ -371,6 +431,8 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Main Content */}
       <main className="pl-64">
+        {/* Top Bar */}
+        <TopBar />
         <div className="p-8">{children}</div>
       </main>
     </div>
