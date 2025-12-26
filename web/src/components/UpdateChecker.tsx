@@ -140,11 +140,8 @@ export function UpdateChecker() {
       <Card>
         <CardContent className="p-8">
           <div className="flex flex-col items-center justify-center space-y-6 text-center">
-            <div className="relative">
-              <Server className="w-16 h-16 text-primary animate-pulse" />
-              <div className="absolute -bottom-1 -right-1">
-                <Loader2 className="w-6 h-6 text-primary animate-spin" />
-              </div>
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <Server className="w-8 h-8 text-primary" />
             </div>
             <div className="space-y-2">
               <h3 className="text-lg font-semibold">Sistem Güncelleniyor</h3>

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -54,21 +53,21 @@ type GitHubCommit struct {
 
 // Güncelleme kontrol response
 type UpdateCheckResponse struct {
-	CurrentVersion  string    `json:"current_version"`
-	LatestCommit    string    `json:"latest_commit"`
-	LocalCommit     string    `json:"local_commit"`
-	HasUpdate       bool      `json:"has_update"`
-	CommitMessage   string    `json:"commit_message"`
-	CommitAuthor    string    `json:"commit_author"`
-	CommitDate      time.Time `json:"commit_date"`
-	LastChecked     time.Time `json:"last_checked"`
+	CurrentVersion string    `json:"current_version"`
+	LatestCommit   string    `json:"latest_commit"`
+	LocalCommit    string    `json:"local_commit"`
+	HasUpdate      bool      `json:"has_update"`
+	CommitMessage  string    `json:"commit_message"`
+	CommitAuthor   string    `json:"commit_author"`
+	CommitDate     time.Time `json:"commit_date"`
+	LastChecked    time.Time `json:"last_checked"`
 }
 
 // CheckForUpdates - GitHub'dan son commit'i kontrol eder
 func (h *Handler) CheckForUpdates(c *fiber.Ctx) error {
 	// GitHub API'den son commit'i al
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/commits/main", GitHubOwner, GitHubRepo)
-	
+
 	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -99,14 +98,14 @@ func (h *Handler) CheckForUpdates(c *fiber.Ctx) error {
 	hasUpdate := localCommit != "" && commit.SHA != "" && !strings.HasPrefix(commit.SHA, localCommit) && !strings.HasPrefix(localCommit, commit.SHA[:7])
 
 	return c.JSON(UpdateCheckResponse{
-		CurrentVersion:  CurrentVersion,
-		LatestCommit:    commit.SHA[:7],
-		LocalCommit:     localCommit,
-		HasUpdate:       hasUpdate,
-		CommitMessage:   commit.Commit.Message,
-		CommitAuthor:    commit.Commit.Author.Name,
-		CommitDate:      commit.Commit.Author.Date,
-		LastChecked:     time.Now(),
+		CurrentVersion: CurrentVersion,
+		LatestCommit:   commit.SHA[:7],
+		LocalCommit:    localCommit,
+		HasUpdate:      hasUpdate,
+		CommitMessage:  commit.Commit.Message,
+		CommitAuthor:   commit.Commit.Author.Name,
+		CommitDate:     commit.Commit.Author.Date,
+		LastChecked:    time.Now(),
 	})
 }
 
@@ -114,7 +113,7 @@ func (h *Handler) CheckForUpdates(c *fiber.Ctx) error {
 func getLocalCommit() string {
 	// Önce /opt/serverpanel'de dene
 	paths := []string{"/opt/serverpanel", "."}
-	
+
 	for _, path := range paths {
 		cmd := exec.Command("git", "rev-parse", "--short", "HEAD")
 		cmd.Dir = path
@@ -123,7 +122,7 @@ func getLocalCommit() string {
 			return strings.TrimSpace(string(output))
 		}
 	}
-	
+
 	return ""
 }
 
@@ -131,7 +130,7 @@ func getLocalCommit() string {
 func (h *Handler) GetUpdateStatus(c *fiber.Ctx) error {
 	updateMutex.Lock()
 	defer updateMutex.Unlock()
-	
+
 	return c.JSON(updateStatus)
 }
 
@@ -142,7 +141,7 @@ func (h *Handler) RunUpdate(c *fiber.Ctx) error {
 		updateMutex.Unlock()
 		return c.Status(400).JSON(fiber.Map{"error": "Güncelleme zaten çalışıyor"})
 	}
-	
+
 	// Durumu sıfırla
 	updateStatus.IsRunning = true
 	updateStatus.Progress = "Başlatılıyor..."
@@ -165,7 +164,7 @@ func (h *Handler) RunUpdate(c *fiber.Ctx) error {
 // runUpdateScript - Update script'ini arka planda çalıştırır
 func runUpdateScript() {
 	scriptPath := "/opt/serverpanel/scripts/update-server.sh"
-	
+
 	// Script var mı kontrol et
 	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
 		updateMutex.Lock()
@@ -178,13 +177,16 @@ func runUpdateScript() {
 	}
 
 	addLog("Güncelleme başlatılıyor...")
-	
-	cmd := exec.Command("bash", scriptPath)
+
+	// nohup ile script'i tamamen bağımsız çalıştır
+	// Backend kapansa bile script devam edecek
+	cmd := exec.Command("nohup", "bash", scriptPath)
 	cmd.Dir = "/opt/serverpanel"
-	
-	// Stdout ve stderr'i yakala
-	stdout, _ := cmd.StdoutPipe()
-	stderr, _ := cmd.StderrPipe()
+
+	// Stdout ve stderr'i /dev/null'a yönlendir (bağımsız çalışması için)
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	cmd.Stdin = nil
 
 	if err := cmd.Start(); err != nil {
 		updateMutex.Lock()
@@ -196,47 +198,11 @@ func runUpdateScript() {
 		return
 	}
 
-	// Stdout okuma
-	go func() {
-		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
-			line := scanner.Text()
-			addLog(line)
-			
-			// Progress güncelle
-			if strings.Contains(line, "[") && strings.Contains(line, "/") {
-				updateMutex.Lock()
-				updateStatus.Progress = line
-				updateMutex.Unlock()
-			}
-		}
-	}()
+	addLog("Güncelleme script'i başlatıldı, servis yeniden başlatılacak...")
 
-	// Stderr okuma
-	go func() {
-		scanner := bufio.NewScanner(stderr)
-		for scanner.Scan() {
-			addLog("[ERROR] " + scanner.Text())
-		}
-	}()
-
-	// Tamamlanmasını bekle
-	err := cmd.Wait()
-	
-	updateMutex.Lock()
-	updateStatus.IsRunning = false
-	updateStatus.CompletedAt = time.Now()
-	
-	if err != nil {
-		updateStatus.Success = false
-		updateStatus.ErrorMessage = "Güncelleme başarısız: " + err.Error()
-		addLogUnsafe("Güncelleme başarısız!")
-	} else {
-		updateStatus.Success = true
-		updateStatus.Progress = "Tamamlandı"
-		addLogUnsafe("Güncelleme başarıyla tamamlandı!")
-	}
-	updateMutex.Unlock()
+	// Script'i beklemeden hemen çık - script bağımsız çalışacak
+	// Backend kapanacak ama script devam edecek
+	go cmd.Wait()
 }
 
 // addLog - Log ekler (mutex ile)
