@@ -288,4 +288,11 @@ export const ftpAPI = {
   restart: () => api.post('/ftp/restart'),
 };
 
+// System Updates
+export const updatesAPI = {
+  check: () => api.get('/system/updates/check'),
+  getStatus: () => api.get('/system/updates/status'),
+  run: () => api.post('/system/updates/run'),
+};
+
 export default api;

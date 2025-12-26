@@ -5,6 +5,7 @@ import { dashboardAPI } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import Layout from '@/components/Layout';
+import { UpdateChecker } from '@/components/UpdateChecker';
 import {
   Users,
   Globe,
@@ -196,6 +197,12 @@ function AdminDashboard({ stats, loading }: { stats: DashboardStats | null; load
               <Mail className="w-5 h-5" />
               <span>E-posta</span>
             </Button>
+          </div>
+
+          {/* System Updates */}
+          <h2 className="text-lg font-semibold">Sistem Güncellemeleri</h2>
+          <div className="max-w-md">
+            <UpdateChecker />
           </div>
         </>
       )}

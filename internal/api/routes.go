@@ -299,5 +299,10 @@ func SetupRoutes(router fiber.Router, db *database.DB) {
 	protected.Get("/security/modsecurity/cms-exclusions", admin, h.GetCMSExclusions)
 	protected.Post("/security/modsecurity/cms-exclusions", admin, h.ToggleCMSExclusion)
 
+	// System Updates (admin only)
+	protected.Get("/system/updates/check", admin, h.CheckForUpdates)
+	protected.Get("/system/updates/status", admin, h.GetUpdateStatus)
+	protected.Post("/system/updates/run", admin, h.RunUpdate)
+
 	// Note: WebSocket route is defined in main.go to avoid SPA fallback conflict
 }
