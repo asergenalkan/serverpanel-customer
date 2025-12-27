@@ -120,6 +120,9 @@ function AdminDashboard({ stats, loading }: { stats: DashboardStats | null; load
       ) : (
         <>
           {/* Stats Grid */}
+          <p className="text-sm text-muted-foreground mb-4">
+            Son güncelleme: {new Date().toLocaleDateString('tr-TR')}
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <StatCard
               title="Kullanıcılar"
