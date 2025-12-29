@@ -716,8 +716,32 @@ func (h *Handler) createDomainResources(username, domain, documentRoot string) {
 		exec.Command("chown", "-R", fmt.Sprintf("%s:%s", username, username), documentRoot).Run()
 	}
 
-	// Create Apache vhost
-	vhostContent := fmt.Sprintf(`<VirtualHost *:80>
+	// Create self-signed SSL certificate for immediate HTTPS support (Cloudflare compatible)
+	sslDir := fmt.Sprintf("/etc/ssl/serverpanel/%s", domain)
+	if err := os.MkdirAll(sslDir, 0755); err != nil {
+		log.Printf("⚠️ SSL dizini oluşturulamadı: %v", err)
+	}
+
+	certPath := filepath.Join(sslDir, "cert.pem")
+	keyPath := filepath.Join(sslDir, "key.pem")
+
+	// Generate self-signed certificate (valid for 10 years)
+	opensslCmd := exec.Command("openssl", "req", "-x509", "-nodes", "-days", "3650",
+		"-newkey", "rsa:2048",
+		"-keyout", keyPath,
+		"-out", certPath,
+		"-subj", fmt.Sprintf("/CN=%s/O=ServerPanel/C=TR", domain),
+		"-addext", fmt.Sprintf("subjectAltName=DNS:%s,DNS:www.%s", domain, domain),
+	)
+	if err := opensslCmd.Run(); err != nil {
+		log.Printf("⚠️ Self-signed SSL oluşturulamadı: %v", err)
+	} else {
+		log.Printf("✅ Self-signed SSL oluşturuldu: %s", domain)
+	}
+
+	// Create Apache vhost (HTTP + HTTPS)
+	vhostContent := fmt.Sprintf(`# HTTP VirtualHost
+<VirtualHost *:80>
     ServerName %s
     ServerAlias www.%s
     DocumentRoot %s
@@ -734,15 +758,46 @@ func (h *Handler) createDomainResources(username, domain, documentRoot string) {
     ErrorLog ${APACHE_LOG_DIR}/%s-error.log
     CustomLog ${APACHE_LOG_DIR}/%s-access.log combined
 </VirtualHost>
-`, domain, domain, documentRoot, documentRoot, cfg.PHPVersion, domain, domain)
+
+# HTTPS VirtualHost (Self-Signed - Cloudflare Full SSL Compatible)
+<VirtualHost *:443>
+    ServerName %s
+    ServerAlias www.%s
+    DocumentRoot %s
+    
+    SSLEngine on
+    SSLCertificateFile %s
+    SSLCertificateKeyFile %s
+    
+    <Directory %s>
+        AllowOverride All
+        Require all granted
+    </Directory>
+    
+    <FilesMatch \.php$>
+        SetHandler "proxy:unix:/run/php/php%s-fpm.sock|fcgi://localhost"
+    </FilesMatch>
+    
+    # Security Headers
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-Content-Type-Options "nosniff"
+    
+    ErrorLog ${APACHE_LOG_DIR}/%s-ssl-error.log
+    CustomLog ${APACHE_LOG_DIR}/%s-ssl-access.log combined
+</VirtualHost>
+`, domain, domain, documentRoot, documentRoot, cfg.PHPVersion, domain, domain,
+		domain, domain, documentRoot, certPath, keyPath, documentRoot, cfg.PHPVersion, domain, domain)
 
 	vhostPath := fmt.Sprintf("/etc/apache2/sites-available/%s.conf", domain)
 	if err := os.WriteFile(vhostPath, []byte(vhostContent), 0644); err != nil {
 		log.Printf("❌ Vhost oluşturulamadı: %v", err)
 	} else {
+		// Enable SSL module
+		exec.Command("a2enmod", "ssl").Run()
+		exec.Command("a2enmod", "headers").Run()
 		exec.Command("a2ensite", domain+".conf").Run()
 		exec.Command("systemctl", "reload", "apache2").Run()
-		log.Printf("✅ Apache vhost oluşturuldu: %s", domain)
+		log.Printf("✅ Apache vhost oluşturuldu (HTTP+HTTPS): %s", domain)
 	}
 
 	// Create DNS zone
@@ -794,6 +849,11 @@ func (h *Handler) removeDomainResources(username, domain string) {
 	os.Remove(fmt.Sprintf("/etc/apache2/sites-available/%s.conf", domain))
 	exec.Command("systemctl", "reload", "apache2").Run()
 
+	// Remove self-signed SSL certificate
+	sslDir := fmt.Sprintf("/etc/ssl/serverpanel/%s", domain)
+	os.RemoveAll(sslDir)
+	log.Printf("✅ SSL sertifikası silindi: %s", domain)
+
 	// Remove DNS zone
 	cfg := config.Get()
 	dnsManager := dnsService.NewManager(cfg.SimulateMode, cfg.SimulateBasePath)
@@ -830,7 +890,24 @@ func (h *Handler) createSubdomainResources(username, fullName, documentRoot, red
 			exec.Command("chown", "-R", fmt.Sprintf("%s:%s", username, username), documentRoot).Run()
 		}
 
-		vhostContent = fmt.Sprintf(`<VirtualHost *:80>
+		// Create self-signed SSL for subdomain (Cloudflare compatible)
+		sslDir := fmt.Sprintf("/etc/ssl/serverpanel/%s", fullName)
+		os.MkdirAll(sslDir, 0755)
+		certPath := filepath.Join(sslDir, "cert.pem")
+		keyPath := filepath.Join(sslDir, "key.pem")
+
+		opensslCmd := exec.Command("openssl", "req", "-x509", "-nodes", "-days", "3650",
+			"-newkey", "rsa:2048",
+			"-keyout", keyPath,
+			"-out", certPath,
+			"-subj", fmt.Sprintf("/CN=%s/O=ServerPanel/C=TR", fullName),
+		)
+		if err := opensslCmd.Run(); err != nil {
+			log.Printf("⚠️ Subdomain SSL oluşturulamadı: %v", err)
+		}
+
+		vhostContent = fmt.Sprintf(`# HTTP VirtualHost
+<VirtualHost *:80>
     ServerName %s
     DocumentRoot %s
     
@@ -846,7 +923,30 @@ func (h *Handler) createSubdomainResources(username, fullName, documentRoot, red
     ErrorLog ${APACHE_LOG_DIR}/%s-error.log
     CustomLog ${APACHE_LOG_DIR}/%s-access.log combined
 </VirtualHost>
-`, fullName, documentRoot, documentRoot, cfg.PHPVersion, fullName, fullName)
+
+# HTTPS VirtualHost (Self-Signed - Cloudflare Full SSL Compatible)
+<VirtualHost *:443>
+    ServerName %s
+    DocumentRoot %s
+    
+    SSLEngine on
+    SSLCertificateFile %s
+    SSLCertificateKeyFile %s
+    
+    <Directory %s>
+        AllowOverride All
+        Require all granted
+    </Directory>
+    
+    <FilesMatch \.php$>
+        SetHandler "proxy:unix:/run/php/php%s-fpm.sock|fcgi://localhost"
+    </FilesMatch>
+    
+    ErrorLog ${APACHE_LOG_DIR}/%s-ssl-error.log
+    CustomLog ${APACHE_LOG_DIR}/%s-ssl-access.log combined
+</VirtualHost>
+`, fullName, documentRoot, documentRoot, cfg.PHPVersion, fullName, fullName,
+			fullName, documentRoot, certPath, keyPath, documentRoot, cfg.PHPVersion, fullName, fullName)
 
 		// Create welcome page (same design as main domain)
 		welcomeHTML := fmt.Sprintf(`<!DOCTYPE html>
@@ -929,6 +1029,10 @@ func (h *Handler) removeSubdomainResources(username, fullName string) {
 	exec.Command("a2dissite", fullName+".conf").Run()
 	os.Remove(fmt.Sprintf("/etc/apache2/sites-available/%s.conf", fullName))
 	exec.Command("systemctl", "reload", "apache2").Run()
+
+	// Remove self-signed SSL certificate
+	sslDir := fmt.Sprintf("/etc/ssl/serverpanel/%s", fullName)
+	os.RemoveAll(sslDir)
 
 	log.Printf("✅ Subdomain kaynakları silindi: %s", fullName)
 }
