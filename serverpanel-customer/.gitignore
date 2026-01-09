@@ -1,0 +1,29 @@
+# Binary
+/serverpanel
+
+# Dependencies
+node_modules/
+
+# Build artifacts
+*.tar.gz
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+
+# Database
+*.db
+*.sqlite
